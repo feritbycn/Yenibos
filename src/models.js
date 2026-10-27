@@ -1,0 +1,364 @@
+// Prosedürel 3D modeller: otobüsler, yolcular, çevre parçaları. Tüm geometri/materyal önbelleklidir.
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { COLORS, VIP_COLOR } from './config.js';
+
+const gcache = new Map();
+function rbox(w, h, l, r, seg = 3) {
+  const k = `rb${w}|${h}|${l}|${r}`;
+  if (!gcache.has(k)) gcache.set(k, new RoundedBoxGeometry(w, h, l, seg, r));
+  return gcache.get(k);
+}
+function cached(key, make) { if (!gcache.has(key)) gcache.set(key, make()); return gcache.get(key); }
+
+const mcache = new Map();
+function mat(key, make) { if (!mcache.has(key)) mcache.set(key, make()); return mcache.get(key); }
+
+export const PALETTES = {
+  vivid:  COLORS.map((c) => c.hex),
+  pastel: [0x7fb0ff, 0xff8f98, 0xffdf7a, 0x7fe39a, 0xc59bff, 0x82e8f2, 0xffa3d5],
+  neon:   [0x1f6bff, 0xff1f3d, 0xffee00, 0x00ff55, 0xb100ff, 0x00f0ff, 0xff2fb0],
+  retro:  [0x3d6fb4, 0xc4473b, 0xe0a82e, 0x4a9a5c, 0x7d5aa6, 0x3fa7a3, 0xd9779d],
+};
+export const RIMS = {
+  steel:  { color: 0xcfd6de, metal: 0.9, rough: 0.25 },
+  gold:   { color: 0xffc83a, metal: 1.0, rough: 0.2 },
+  neon:   { color: 0x35f0ff, metal: 0.4, rough: 0.3, emissive: 0x0a9fb0 },
+  chrome: { color: 0xf5f8ff, metal: 1.0, rough: 0.08 },
+};
+export const VIP_SKINS = {
+  gold:     { body: 0xf5b72a, trim: 0xfff0b0, glow: 0xffd45a, label: 'Altın' },
+  platinum: { body: 0xd9e1ec, trim: 0xffffff, glow: 0xbfe6ff, label: 'Platin' },
+  royal:    { body: 0x6a2cff, trim: 0xffd65a, glow: 0xb58bff, label: 'Kraliyet' },
+};
+
+export function paint(hex) {
+  return mat('paint' + hex, () => new THREE.MeshPhysicalMaterial({ color: hex, roughness: 0.42, metalness: 0.0, clearcoat: 0.35, clearcoatRoughness: 0.3 }));
+}
+const lighten = (hex, a) => new THREE.Color(hex).lerp(new THREE.Color(0xffffff), a).getHex();
+const darken = (hex, a) => new THREE.Color(hex).lerp(new THREE.Color(0x000000), a).getHex();
+
+const M = {
+  glass: () => mat('glass', () => new THREE.MeshStandardMaterial({ color: 0x3a5f86, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.42, depthWrite: false })),
+  interior: () => mat('interior', () => new THREE.MeshStandardMaterial({ color: 0x9fb4cc, roughness: 0.9, side: THREE.BackSide })),
+  tire: () => mat('tire', () => new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.85 })),
+  bumper: () => mat('bumper', () => new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.5, metalness: 0.2 })),
+  head: () => mat('headlight', () => new THREE.MeshStandardMaterial({ color: 0xfff6c8, emissive: 0xffe9a0, emissiveIntensity: 0.9, roughness: 0.2 })),
+  tail: () => mat('taillight', () => new THREE.MeshStandardMaterial({ color: 0xff3040, emissive: 0xff1020, emissiveIntensity: 0.7, roughness: 0.3 })),
+  white: () => mat('white', () => new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 0.5 })),
+  dark: () => mat('darkpl', () => new THREE.MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.7 })),
+};
+
+export function rimMaterial(name) {
+  const r = RIMS[name] || RIMS.steel;
+  return mat('rim' + name, () => new THREE.MeshStandardMaterial({ color: r.color, metalness: r.metal, roughness: r.rough, emissive: r.emissive || 0x000000, emissiveIntensity: r.emissive ? 0.6 : 0 }));
+}
+function goldMat() { return mat('gold', () => new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: 1, roughness: 0.22, emissive: 0x3a2400, emissiveIntensity: 0.4 })); }
+
+// ---------- Dokular ----------
+let _arrowTex = null;
+export function arrowTexture() {
+  if (_arrowTex) return _arrowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.translate(64, 64);
+  g.lineJoin = 'round';
+  const draw = () => { g.beginPath(); g.moveTo(0, -46); g.lineTo(34, -6); g.lineTo(13, -6); g.lineTo(13, 42); g.lineTo(-13, 42); g.lineTo(-13, -6); g.lineTo(-34, -6); g.closePath(); };
+  draw(); g.lineWidth = 14; g.strokeStyle = 'rgba(20,30,50,.55)'; g.stroke();
+  draw(); g.fillStyle = '#ffffff'; g.fill();
+  _arrowTex = new THREE.CanvasTexture(c); _arrowTex.anisotropy = 4; _arrowTex.colorSpace = THREE.SRGBColorSpace;
+  return _arrowTex;
+}
+function plateTexture(text, fg, bg) {
+  return cached('plate' + text + fg + bg, () => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    const g = c.getContext('2d');
+    g.fillStyle = bg; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = fg; g.font = '900 78px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, 128, 70);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  });
+}
+
+// ---------- Otobüs ----------
+export const BUS_STYLES = {
+  city:   { label: 'Şehir Otobüsü', price: 0 },
+  mini:   { label: 'Minibüs', price: 250 },
+  school: { label: 'Okul Servisi', price: 450 },
+  coach:  { label: 'Konfor Otobüsü', price: 800 },
+};
+
+export function busLength(len) { return len * 1.0 - 0.12; }
+export const BUS_WIDTH = 0.76;
+export const PARK_SCALE = { 1: 0.85, 2: 0.8, 3: 0.75, 4: 0.72 };
+
+/**
+ * @param {{len:number, hex:number, style?:string, vip?:boolean, rim?:string, vipSkin?:string, seats:number, noArrow?:boolean}} o
+ * Yerel eksen: uzunluk Z, ön = -Z, yukarı = +Y.
+ */
+export function buildBus(o) {
+  const style = o.vip ? 'coach' : (o.style || 'city');
+  const Lz = busLength(o.len);
+  const W = BUS_WIDTH;
+  const skin = VIP_SKINS[o.vipSkin || 'gold'];
+  const bodyHex = o.vip ? skin.body : o.hex;
+  const g = new THREE.Group();
+  const bodyMat = paint(bodyHex);
+  const roofMat = paint(o.vip ? skin.trim : lighten(bodyHex, 0.12));
+  const parts = { wheels: [], seatMarks: [], body: [], bodyMat };
+
+  const lowH = style === 'mini' ? 0.44 : 0.38;
+  const cabH = style === 'school' ? 0.38 : style === 'mini' ? 0.24 : 0.3;
+  const y0 = 0.12;
+  // alt gövde
+  const low = new THREE.Mesh(rbox(W, lowH, Lz, style === 'mini' ? 0.16 : 0.11), bodyMat);
+  low.position.y = y0 + lowH / 2; low.castShadow = true; g.add(low); parts.body.push(low);
+  // kabin: iç mekân + camlar + direkler + tavan
+  const cabW = W - 0.06, cabL = Lz - (style === 'mini' ? 0.2 : 0.14);
+  const cabY = y0 + lowH;
+  const interior = new THREE.Mesh(rbox(cabW - 0.06, cabH, cabL - 0.06, 0.03), M.interior());
+  interior.position.y = cabY + cabH / 2; g.add(interior);
+  const roof = new THREE.Mesh(rbox(W - 0.02, 0.09, cabL + 0.06, 0.04), roofMat);
+  roof.position.y = cabY + cabH + 0.04; roof.castShadow = true; g.add(roof); parts.body.push(roof);
+  const roofTop = cabY + cabH + 0.085;
+  // yan camlar + direkler
+  const panes = style === 'coach' ? 1 : Math.max(1, Math.round((cabL - 0.2) / 0.42));
+  const paneGap = style === 'coach' ? 0 : 0.07;
+  const usable = cabL - 0.22;
+  const paneL = (usable - paneGap * (panes - 1)) / panes;
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < panes; i++) {
+      const z = -usable / 2 + paneL / 2 + i * (paneL + paneGap);
+      const gl = new THREE.Mesh(rbox(0.03, cabH - 0.06, paneL, 0.012, 2), M.glass());
+      gl.position.set(side * (cabW / 2 - 0.005), cabY + cabH / 2, z);
+      g.add(gl);
+    }
+    // direk şeridi (gövde rengi, kabin çevresi)
+    const pil = new THREE.Mesh(rbox(0.04, cabH, cabL, 0.015, 2), bodyMat);
+    pil.position.set(side * (cabW / 2 - 0.03), cabY + cabH / 2, 0); pil.scale.set(0.6, 0.12, 1);
+    pil.position.y = cabY + 0.01; g.add(pil);
+  }
+  // ön / arka cam
+  const wsh = new THREE.Mesh(rbox(cabW - 0.1, cabH - 0.06, 0.03, 0.012, 2), M.glass());
+  wsh.position.set(0, cabY + cabH / 2, -cabL / 2 + 0.008); g.add(wsh);
+  const rear = wsh.clone(); rear.position.z = cabL / 2 - 0.008; rear.scale.set(0.85, 0.8, 1); g.add(rear);
+  // tampon, farlar, stop lambaları
+  const fb = new THREE.Mesh(rbox(W - 0.04, 0.08, 0.07, 0.03, 2), o.vip ? goldMat() : M.bumper());
+  fb.position.set(0, y0 + 0.07, -Lz / 2 + 0.01); g.add(fb);
+  const rb = fb.clone(); rb.position.z = Lz / 2 - 0.01; g.add(rb);
+  for (let side = -1; side <= 1; side += 2) {
+    const hl = new THREE.Mesh(cached('hl', () => new THREE.SphereGeometry(0.058, 12, 8)), M.head());
+    hl.scale.set(1, 0.8, 0.5); hl.position.set(side * 0.24, y0 + 0.24, -Lz / 2 + 0.01); g.add(hl);
+    const tl = new THREE.Mesh(cached('tl', () => new THREE.BoxGeometry(0.1, 0.045, 0.03)), M.tail());
+    tl.position.set(side * 0.26, y0 + 0.26, Lz / 2 - 0.005); g.add(tl);
+  }
+  // grill / plaka
+  const grill = new THREE.Mesh(rbox(0.26, 0.07, 0.03, 0.015, 2), M.dark());
+  grill.position.set(0, y0 + 0.2, -Lz / 2 + 0.008); g.add(grill);
+  // tekerlek yuvaları (iki yanda)
+  // (konumlar tekerleklerle aynı eksenlere yerleştirilir; aşağıda axleZ hesaplandıktan sonra eklenir)
+  // stile özel parçalar
+  if (style === 'school') {
+    const band = new THREE.Mesh(rbox(W + 0.012, 0.05, Lz - 0.06, 0.012, 2), M.dark());
+    band.position.y = y0 + 0.2; g.add(band);
+    const stop = new THREE.Mesh(cached('stopsign', () => new THREE.CylinderGeometry(0.075, 0.075, 0.015, 8)), mat('stop', () => new THREE.MeshStandardMaterial({ color: 0xe02a2a, roughness: 0.4 })));
+    stop.rotation.z = Math.PI / 2; stop.position.set(-W / 2 - 0.03, y0 + lowH - 0.02, -Lz / 2 + 0.3); g.add(stop);
+  }
+  if (style === 'coach') {
+    const ac = new THREE.Mesh(rbox(0.26, 0.05, Math.min(0.6, cabL * 0.35), 0.025, 2), mat('acunit', () => new THREE.MeshStandardMaterial({ color: 0xdfe5ee, roughness: 0.6 })));
+    ac.position.set(0, roofTop + 0.02, Lz * 0.12); g.add(ac);
+    const skirt = new THREE.Mesh(rbox(W + 0.012, 0.07, Lz - 0.2, 0.02, 2), mat('skirt', () => new THREE.MeshStandardMaterial({ color: 0xaab4c2, metalness: 0.7, roughness: 0.3 })));
+    skirt.position.y = y0 + 0.06; g.add(skirt);
+  }
+  if (style === 'mini') {
+    const rack = new THREE.Mesh(rbox(0.4, 0.04, cabL * 0.5, 0.015, 2), M.dark());
+    rack.position.set(0, roofTop + 0.015, Lz * 0.08); g.add(rack);
+  }
+  // tekerlekler
+  const rimM = o.vip ? goldMat() : rimMaterial(o.rim || 'steel');
+  const axleZ = [];
+  const front = -Lz / 2 + 0.26, back = Lz / 2 - 0.26;
+  axleZ.push(front, back);
+  if (o.len >= 3) axleZ.splice(1, 0, (front + back) / 2 + (o.len >= 4 ? -0.35 : 0)), o.len >= 4 && axleZ.push((front + back) / 2 + 0.35);
+  for (const z of axleZ) {
+    for (let side = -1; side <= 1; side += 2) {
+      const arch = new THREE.Mesh(cached('arch', () => new THREE.CircleGeometry(0.2, 20)), mat('archm', () => new THREE.MeshStandardMaterial({ color: 0x1a1e28, roughness: 0.9 })));
+      arch.rotation.y = side * Math.PI / 2; arch.position.set(side * (W / 2 + 0.004), 0.17, z); g.add(arch);
+      const wh = new THREE.Group();
+      const tire = new THREE.Mesh(cached('tire', () => new THREE.CylinderGeometry(0.15, 0.15, 0.12, 20)), M.tire());
+      tire.rotation.z = Math.PI / 2; tire.castShadow = true;
+      const hub = new THREE.Mesh(cached('hub', () => new THREE.CylinderGeometry(0.085, 0.085, 0.125, 16)), rimM);
+      hub.rotation.z = Math.PI / 2;
+      const spokeG = cached('spoke', () => new THREE.BoxGeometry(0.13, 0.15, 0.02));
+      const sp = new THREE.Mesh(spokeG, M.dark()); sp.position.x = side * 0.05; sp.scale.set(1, 0.7, 1);
+      const sp2 = sp.clone(); sp2.rotation.x = Math.PI / 2;
+      wh.add(tire, hub, sp, sp2);
+      wh.position.set(side * (W / 2 - 0.02), 0.15, z);
+      g.add(wh); parts.wheels.push(wh);
+    }
+  }
+  // koltuk/yolcu siluetleri (cam arkasında)
+  const seatN = o.seats;
+  const cols = 2;
+  const rows = Math.ceil(seatN / cols);
+  for (let i = 0; i < seatN; i++) {
+    const r = Math.floor(i / cols), cI = i % cols;
+    const z = rows === 1 ? 0 : -usable / 2 + 0.16 + (usable - 0.32) * (r / (rows - 1));
+    const m = new THREE.Mesh(cached('seathead', () => new THREE.SphereGeometry(0.075, 12, 10)), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }));
+    m.position.set((cI === 0 ? -1 : 1) * 0.16, cabY + cabH * 0.55, z);
+    const body = new THREE.Mesh(cached('seatbody', () => new THREE.CapsuleGeometry(0.07, 0.05, 4, 8)), m.material);
+    body.position.set(0, -0.1, 0); m.add(body);
+    m.visible = false; g.add(m); parts.seatMarks.push(m);
+  }
+  // çatı oku
+  if (!o.noArrow) {
+    const arrow = new THREE.Mesh(cached('arrowplane', () => new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: arrowTexture(), transparent: true, depthWrite: false }));
+    arrow.rotation.x = -Math.PI / 2;
+    const s = Math.min(0.52, Lz * 0.55);
+    arrow.scale.set(s, s, 1);
+    arrow.position.set(0, roofTop + (style === 'coach' || style === 'mini' ? 0.052 : 0.006), style === 'coach' ? -Lz * 0.22 : (o.len >= 2 ? -Lz * 0.08 : 0));
+    arrow.renderOrder = 3; g.add(arrow); parts.arrow = arrow;
+  }
+  // VIP süsleri
+  if (o.vip) {
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.25), new THREE.MeshStandardMaterial({ map: plateTexture('VIP', '#3a2400', '#ffd45a'), roughness: 0.3, metalness: 0.5 }));
+    plate.rotation.x = -Math.PI / 2; plate.position.set(0, roofTop + 0.012, Lz * 0.3); g.add(plate);
+    for (const z of [-Lz * 0.3, Lz * 0.3]) {
+      const trim = new THREE.Mesh(rbox(W + 0.02, 0.025, 0.04, 0.01, 2), goldMat());
+      trim.position.set(0, y0 + lowH - 0.03, z); g.add(trim);
+    }
+    const line = new THREE.Mesh(rbox(W + 0.016, 0.022, Lz - 0.1, 0.01, 2), goldMat());
+    line.position.y = y0 + 0.2; g.add(line);
+    const glow = new THREE.Mesh(cached('vipglow', () => new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: glowTexture(), color: skin.glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
+    glow.rotation.x = -Math.PI / 2; glow.scale.set(W + 1.2, Lz + 1.2, 1); glow.position.y = 0.02; glow.renderOrder = 1;
+    g.add(glow); parts.glow = glow;
+  }
+  g.userData.parts = parts;
+  g.userData.dims = { Lz, W, roofTop };
+  return g;
+}
+
+let _glowTex = null;
+export function glowTexture() {
+  if (_glowTex) return _glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  _glowTex = new THREE.CanvasTexture(c); return _glowTex;
+}
+
+export function setBusPassengers(group, colorsList, hexOf) {
+  const p = group.userData.parts;
+  p.seatMarks.forEach((m, i) => {
+    if (i < colorsList.length) { m.visible = true; m.material.color.setHex(hexOf(colorsList[i])); } else m.visible = false;
+  });
+}
+export function recolorBus(group, hex) {
+  const p = group.userData.parts;
+  const m = paint(hex);
+  for (const mesh of p.body) mesh.material = m;
+  // tavan daha açık ton
+  p.body[1].material = paint(lighten(hex, 0.12));
+  p.bodyMat = m;
+}
+
+// ---------- Yolcu ----------
+let _faceTex = null;
+function faceTexture() {
+  if (_faceTex) return _faceTex;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1a1d27';
+  for (const x of [40, 88]) { g.beginPath(); g.ellipse(x, 52, 7, 10, 0, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(x - 2, 47, 3, 0, 7); g.fill(); g.fillStyle = '#1a1d27'; }
+  g.fillStyle = 'rgba(255,110,140,.5)';
+  for (const x of [24, 104]) { g.beginPath(); g.ellipse(x, 78, 10, 6, 0, 0, 7); g.fill(); }
+  g.strokeStyle = '#1a1d27'; g.lineWidth = 5; g.lineCap = 'round';
+  g.beginPath(); g.arc(64, 74, 14, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+  _faceTex = new THREE.CanvasTexture(c); _faceTex.colorSpace = THREE.SRGBColorSpace; _faceTex.anisotropy = 4;
+  return _faceTex;
+}
+export function buildPassenger(colorIndex, hexOf, variant = 0) {
+  const hex = hexOf(colorIndex);
+  const g = new THREE.Group();
+  const bodyM = mat('pbody' + hex, () => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.55 }));
+  const headM = mat('phead' + hex, () => new THREE.MeshStandardMaterial({ color: lighten(hex, 0.22), roughness: 0.5 }));
+  const pants = mat('ppants', () => new THREE.MeshStandardMaterial({ color: 0x2b3245, roughness: 0.7 }));
+  const rig = new THREE.Group(); const wrap = new THREE.Group(); wrap.scale.setScalar(1.22); wrap.add(rig); g.add(wrap);
+  const body = new THREE.Mesh(cached('pbodyg', () => new THREE.CapsuleGeometry(0.15, 0.16, 4, 10)), bodyM);
+  body.position.y = 0.36; body.castShadow = true; rig.add(body);
+  const head = new THREE.Group(); head.position.y = 0.66; rig.add(head);
+  const skull = new THREE.Mesh(cached('pheadg', () => new THREE.SphereGeometry(0.16, 16, 12)), headM);
+  skull.castShadow = true; head.add(skull);
+  const face = new THREE.Mesh(cached('faceplane', () => new THREE.PlaneGeometry(0.2, 0.2)), mat('facemat', () => new THREE.MeshBasicMaterial({ map: faceTexture(), transparent: true, depthWrite: false })));
+  face.position.set(0, 0.0, 0.153); face.renderOrder = 2; head.add(face);
+  // aksesuar
+  const acc = variant % 4;
+  if (acc === 1) { // bere
+    const cap = new THREE.Mesh(cached('beanie', () => new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5)), mat('beanie' + hex, () => new THREE.MeshStandardMaterial({ color: darken(hex, 0.25), roughness: 0.8 })));
+    cap.position.y = 0.04; cap.rotation.x = -0.15; head.add(cap);
+    const pom = new THREE.Mesh(cached('pom', () => new THREE.SphereGeometry(0.04, 8, 6)), mat('pomw', () => new THREE.MeshStandardMaterial({ color: 0xffffff })));
+    pom.position.y = 0.2; head.add(pom);
+  } else if (acc === 2) { // şapka
+    const cap = new THREE.Mesh(cached('capdome', () => new THREE.SphereGeometry(0.168, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45)), mat('cap' + hex, () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })));
+    cap.position.y = 0.03; head.add(cap);
+    const brim = new THREE.Mesh(cached('brim', () => new THREE.CylinderGeometry(0.1, 0.1, 0.018, 12, 1, false, -Math.PI / 2, Math.PI)), cap.material);
+    brim.position.set(0, 0.07, 0.12); brim.rotation.y = 0; brim.scale.set(1, 1, 1.0); head.add(brim);
+  } else if (acc === 3) { // sırt çantası
+    const bp = new THREE.Mesh(rbox(0.22, 0.26, 0.1, 0.04, 2), mat('bp', () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })));
+    bp.position.set(0, 0.38, -0.17); rig.add(bp);
+  }
+  // kollar / bacaklar (pivotlu)
+  const armG = cached('armg', () => new THREE.CapsuleGeometry(0.045, 0.1, 3, 6));
+  const legG = cached('legg', () => new THREE.CapsuleGeometry(0.055, 0.06, 3, 6));
+  const arms = [], legs = [];
+  for (let s = -1; s <= 1; s += 2) {
+    const ap = new THREE.Group(); ap.position.set(s * 0.19, 0.46, 0);
+    const a = new THREE.Mesh(armG, bodyM); a.position.y = -0.09; a.castShadow = true; ap.add(a); rig.add(ap); arms.push(ap);
+    const lp = new THREE.Group(); lp.position.set(s * 0.075, 0.18, 0);
+    const l = new THREE.Mesh(legG, pants); l.position.y = -0.07; l.castShadow = true; lp.add(l); rig.add(lp); legs.push(lp);
+  }
+  g.userData = { rig, head, arms, legs, body, colorIndex, phase: Math.random() * 6.28, state: 'idle', yaw: 0 };
+  return g;
+}
+
+// ---------- Çevre parçaları ----------
+export function buildLamp() {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.9, 8), mat('lamppole', () => new THREE.MeshStandardMaterial({ color: 0x59626f, metalness: 0.6, roughness: 0.4 })));
+  pole.position.y = 0.95; pole.castShadow = true; g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.05, 0.05), pole.material); arm.position.set(0.28, 1.9, 0); g.add(arm);
+  const lamp = new THREE.Mesh(rbox(0.28, 0.06, 0.14, 0.02, 2), mat('lampl', () => new THREE.MeshStandardMaterial({ color: 0xfff2c4, emissive: 0xffe39a, emissiveIntensity: 0.8 })));
+  lamp.position.set(0.55, 1.87, 0); g.add(lamp);
+  return g;
+}
+export function buildTree(hex = 0x38b35a) {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.5, 8), mat('trunk', () => new THREE.MeshStandardMaterial({ color: 0x8a5a3a, roughness: 0.9 })));
+  trunk.position.y = 0.25; trunk.castShadow = true; g.add(trunk);
+  const fol = mat('fol' + hex, () => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.75, flatShading: true }));
+  for (let i = 0; i < 3; i++) {
+    const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34 - i * 0.07, 1), fol);
+    s.position.y = 0.66 + i * 0.3; s.castShadow = true; g.add(s);
+  }
+  return g;
+}
+export function buildBush() {
+  const g = new THREE.Group();
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.24, 0.2, 14), mat('pot', () => new THREE.MeshStandardMaterial({ color: 0xe8edf4, roughness: 0.5 })));
+  pot.position.y = 0.1; pot.castShadow = true; g.add(pot);
+  const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.27, 1), mat('bushm', () => new THREE.MeshStandardMaterial({ color: 0x6fd13a, roughness: 0.7, flatShading: true })));
+  b.position.y = 0.36; b.castShadow = true; g.add(b);
+  return g;
+}
+export function buildBench() {
+  const g = new THREE.Group();
+  const wood = mat('wood', () => new THREE.MeshStandardMaterial({ color: 0xc98b5a, roughness: 0.8 }));
+  const seat = new THREE.Mesh(rbox(0.9, 0.07, 0.3, 0.02, 2), wood); seat.position.y = 0.32; seat.castShadow = true; g.add(seat);
+  const back = new THREE.Mesh(rbox(0.9, 0.22, 0.05, 0.02, 2), wood); back.position.set(0, 0.5, -0.14); g.add(back);
+  for (const x of [-0.38, 0.38]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.26), M.dark()); l.position.set(x, 0.15, 0); g.add(l); }
+  return g;
+}
+
+export const hexFor = (palette) => (idx) => (idx === VIP_COLOR ? 0xf5b72a : (PALETTES[palette] || PALETTES.vivid)[idx]);

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bus Puzzle Deluxe</string>
+    <string name="title_activity_main">Bus Puzzle Deluxe</string>
+    <string name="package_name">com.ferit.buspuzzledeluxe</string>
+    <string name="custom_url_scheme">com.ferit.buspuzzledeluxe</string>
+</resources>
