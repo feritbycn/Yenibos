@@ -103,7 +103,7 @@ await ff(2.5);
 check('VIP hakkı kullanıldı: seçilen otobüs VIP alanında', vip.m === 'vip' && vip.left === 0 && (await ev(() => window.__game.state.vipSlot)) !== null || vip.slot !== null, JSON.stringify(vip));
 await ev(() => { const g = window.__game; g.save.data.coins = 700; g.state.vipSlot = null; g.onPower('vipcall'); }); await pg.waitForTimeout(250);
 const vipTxt = await ev(() => document.querySelector('.sheet-foot')?.textContent || '');
-check('Hak bitince 100 jetonluk satın alma + reklam seçeneği çıkıyor', /Satın al.*100/.test(vipTxt) && /Reklam izle/.test(vipTxt), vipTxt);
+check('Hak bitince 100 jetonluk satın alma + reklam seçeneği çıkıyor', /100/.test(vipTxt) && /Ücretsiz/.test(vipTxt), vipTxt);
 await shot('vip_offer');
 await ev(() => { const g = window.__game; g.ui.closeAll(); g.save.data.coins = 20; g.onPower('vipcall'); }); await pg.waitForTimeout(250);
 const vipTxt2 = await ev(() => document.querySelector('.sheet-foot')?.textContent || '');

@@ -941,6 +941,13 @@ export class GameScene {
 
   // ------------------------------------------------------------------ Etiketler (koltuk sayacı)
   removeLabel(id) { const l = this.labels.get(id); if (l) { l.remove(); this.labels.delete(id); } }
+  /** Yolcu ruh hâli balonu (kuyruk tabelasının üstünde). emoji=null → gizle. */
+  setMood(emoji) {
+    if (!emoji) { if (this.moodEl) { this.moodEl.remove(); this.moodEl = null; this.moodVal = null; } return; }
+    if (this.moodVal === emoji) return;
+    if (!this.moodEl) { this.moodEl = document.createElement('div'); this.moodEl.className = 'mood'; this.moodEl.innerHTML = '<i></i>'; this.labelLayer.appendChild(this.moodEl); }
+    const i = this.moodEl.firstChild; i.textContent = emoji; i.style.animation = 'none'; void i.offsetWidth; i.style.animation = ''; this.moodVal = emoji;
+  }
   updateLabels() {
     const s = this.state; if (!s) return;
     const rect = { w: this.container.clientWidth, h: this.container.clientHeight };
@@ -951,7 +958,8 @@ export class GameScene {
     if (!this.qsign) { this.qsign = document.createElement('div'); this.qsign.className = 'qsign'; this.qsign.innerHTML = '<b></b><span>Kalan</span>'; this.labelLayer.appendChild(this.qsign); }
     const left = s.queue.length - s.qi;
     if (this.qsign._v !== left) { this.qsign.firstChild.textContent = left; this.qsign._v = left; }
-    { const v = this.project(-COLS * SPC / 2 - 0.95, 0.4, QZ0 - 0.1); this.qsign.style.transform = `translate(${v.x}px, ${v.y}px) translate(-50%,-50%)`; }
+    { const v = this.project(-COLS * SPC / 2 - 0.95, 0.4, QZ0 - 0.1); this.qsign.style.transform = `translate(${v.x}px, ${v.y}px) translate(-50%,-50%)`;
+      if (this.moodEl) this.moodEl.style.transform = `translate(${v.x + 4}px, ${v.y - 52}px) translate(-50%,-100%)`; }
     for (const vis of this.busVis.values()) {
       const b = s.buses[vis.id];
       if (b.st !== 'parked' || !vis.parked || vis.departing) { this.removeLabel(vis.id); continue; }

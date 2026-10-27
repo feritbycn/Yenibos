@@ -293,9 +293,32 @@ export class Game {
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.refreshChips(); this.fail('time'); }
     }
     if (this.phase === 'play') this.tut.update(dt);
+    this.moodTick(dt);
     if (this.pendingTaps?.length && this.phase === 'play' && !this.paused && !this.mode && !this.ui.hasModal && !this.scene.isBusy()) this.handleTap(this.pendingTaps.shift());
     else if (this.pendingTaps?.length && this.phase !== 'play') this.pendingTaps.length = 0;
   }
+  /** Akıllı emoji: oyuncu uzun süre dokunmazsa yolcular sıkılır. Hızlı ve hatasız art arda hamlede "Harika!" gibi övgü. */
+  moodTick(dt) {
+    this.clock = (this.clock || 0) + dt;
+    const active = this.phase === 'play' && !this.paused && !this.adOpen && !this.ui.hasModal && !this.mode && !this.tut.active && this.state;
+    if (!active || this.scene.isBusy()) { this.idleT = 0; this.scene.setMood(null); return; }
+    this.idleT = (this.idleT || 0) + dt;
+    const free = this.state.slotOpen.filter((o, i) => o && this.state.slots[i] === null).length;
+    const t = this.idleT; let e = null;
+    if (t >= 30) e = '😡'; else if (t >= 20) e = '😴'; else if (t >= 12) e = '😒'; else if (t >= 7) e = '🥱';
+    else if (t >= 4 && free <= 1) e = '😰';
+    this.scene.setMood(e);
+  }
+  /** Başarılı hamle: 3 sn içinde art arda hatasız hamleler seri oluşturur. */
+  trackStreak() {
+    const now = this.clock || 0;
+    this.streak = (this.lastMoveAt !== undefined && now - this.lastMoveAt < 3.2) ? (this.streak || 0) + 1 : 1;
+    this.lastMoveAt = now; this.idleT = 0; this.scene.setMood(null);
+    const words = { 3: 'Harika!', 5: 'Süper!', 7: 'Muhteşem!', 10: 'İnanılmaz!' };
+    const w = words[this.streak] || (this.streak > 10 && (this.streak - 10) % 4 === 0 ? 'Efsane!' : null);
+    if (w) { this.ui.praise(w); this.sound.play('coin'); }
+  }
+  breakStreak() { this.streak = 0; }
   refreshChipsThrottled(dt) { this._ct = (this._ct || 0) + dt; if (this._ct > 0.25) { this._ct = 0; this.refreshChips(); } }
 
   // ---------------------------------------------------------------- hamleler
@@ -309,18 +332,18 @@ export class Game {
     const r = E.tap(s, id);
     this.scene.clearGlows();
     if (r.ok) {
-      this.countMove(id);
+      this.countMove(id); this.trackStreak();
       this.snapshots.push(snap); if (this.snapshots.length > 40) this.snapshots.shift();
       this.scene.startDriveToSlot(id, r.slot);
       this.tut.onMove(id); this.refreshChips();
       if (s.buses[id].vip) this.ui.toast('VIP otobüs yola çıktı!', 'good');
     } else if (r.reason === 'blocked') {
-      this.countMove(id);                       // engele çarpmak da hamledir (yıldızı etkiler)
+      this.countMove(id); this.breakStreak(); this.idleT = 0;                      // engele çarpmak da hamledir (yıldızı etkiler)
       this.scene.bump(id, r.blockers); for (const b of r.blockers) this.scene.flashBus(b, 0xff4d4d, 0.7); this.refreshChips();
       if (s.moveLimit !== null) this.scene.idleFired = false;
     } else if (r.reason === 'noslot') {
       if (this.scene.isBusy()) { this.queueTap(id); return; }   // yolcular biniyor / otobüs yoldaysa yer açılabilir: sıraya al
-      this.sound.play('error'); this.ui.toast('Park yerleri dolu! + alanlardan ek yer açabilirsin.', 'bad'); this.scene.shakeBus(id);
+      this.breakStreak(); this.sound.play('error'); this.ui.toast('Park yerleri dolu! + alanlardan ek yer açabilirsin.', 'bad'); this.scene.shakeBus(id);
     } else if (r.reason === 'vipfull') { this.sound.play('error'); this.ui.toast('VIP alanı dolu.', 'bad'); } else if (r.reason === 'limit') { this.scene.idleFired = false; }
   }
 
@@ -379,7 +402,7 @@ export class Game {
     setTimeout(() => { if (this.phase === 'ended') this.ui.fail({ reason, canSlotAd, canUndo: this.snapshots.length > 0 && adOk && left > 0, revivesLeft: left, adOk, canVip: s.vipSlot === null && s.buses.some((b) => b.st === 'board') }); }, 600);
   }
   /** Reklam/jetonla devam edildi: hak sayacını artır ve oyunu sürdür. Seviye başına en fazla MAX_REVIVES. */
-  reviveAfter() { this.revives++; this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
+  reviveAfter(free = false) { if (!free) this.revives++; this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
   /** Kayıp ekranı: ödüllü reklamla, hâlâ kazanılabilir en son konuma geri dön (en fazla 3 kez). */
   async reviveUndo() {
     if (this.revives >= MAX_REVIVES) { this.ui.toast('Geri alma hakkın bitti. Seviyeyi yeniden başlatmalısın.', 'bad'); return false; }
@@ -660,8 +683,10 @@ export class Game {
   }
   /** Kayıp ekranından: VIP ile kurtar (hak varsa seçim moduna, yoksa satın alma penceresine). */
   vipRescue() {
-    this.phase = 'play'; this.scene.idleFired = false;
-    if (this.save.data.powerups.vip > 0) this.startVipMode(); else this.ui.powerBuy('vip');
+    // Hak yoksa oyun "bitti" durumunda kalır (yoksa boşta algısı kayıp ekranını tekrar açardı); hak alınınca devam edilir.
+    const go = () => { this.phase = 'play'; this.scene.idleFired = true; this.startVipMode(); };
+    if (this.save.data.powerups.vip > 0) go();
+    else this.ui.powerBuy('vip', { onGot: go, onCancel: () => this.ui.reshowFail() });
   }
   /** Karıştır: kalan otobüslerin yerlerini yeniden dizer; sonuç her zaman çözülebilirdir. */
   doShuffle() {

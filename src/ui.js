@@ -370,7 +370,8 @@ export class UI {
     });
   }
 
-  fail({ reason, canSlotAd, canUndo, revivesLeft, adOk, canVip }) {
+  fail(args) {
+    this._failArgs = args; const { reason, canSlotAd, canUndo, revivesLeft, adOk, canVip } = args;
     const G = this.G;
     const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!', time: 'Süre doldu!' }[reason] || 'Seviye başarısız.';
     const opts = [];
@@ -392,7 +393,7 @@ export class UI {
     this.onAct(c, {
       restart: () => { c.close(); G.restart(); }, menu: () => { c.close(); G.goMenu(); },
       vip: () => { c.close(); G.vipRescue(); },
-      slotAd: async () => { if (await G.unlockSlot('ad')) { c.close(); G.reviveAfter(); } },
+      slotAd: async () => { if (await G.unlockSlot('ad')) { c.close(); G.reviveAfter(true); } },
       undo: async () => { if (await G.reviveUndo()) { c.close(); G.reviveAfter(); } },
       moveAd: async () => { if (await G.addMoves('ad')) { c.close(); G.reviveAfter(); } },
       moveCoin: async () => { if (await G.addMoves('coin')) { c.close(); G.reviveAfter(); } },
@@ -417,13 +418,26 @@ export class UI {
     });
   }
 
-  powerBuy(kind) {
-    const G = this.G; const p = POWER_INFO[kind];
+  powerBuy(kind, opts = {}) {
+    const G = this.G; const p = POWER_INFO[kind]; const adOk = ADS.mode !== 'off'; let got = false;
+    const icon = { undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', convert: 'convert', vip: 'vip', shuffle: 'shuffle', extraSlot: 'plus' }[kind] || 'gift';
+    const coinBtn = G.save.data.coins >= p.price ? `<button class="btn gold" data-act="buy">${ico('coin', 26)} ${p.price}</button>` : `<button class="btn orange" data-act="needcoins">${ico('coin', 24)} ${p.price}<small>Jeton yetmiyor</small></button>`;
     const c = this.modal({
-      title: p.name, head: 'blue', body: `<p>${p.desc}</p><p style="color:#c98a00;font-weight:900">Elinde kalmadı.</p>${kind === 'vip' ? `<p style="font-size:13px;color:#58649a">Satın alınca VIP hakkı envanterine eklenir; sonra VIP düğmesine dokunup otobüsü seçersin.</p>` : ''}`,
-      foot: `${G.save.data.coins >= p.price ? `<button class="btn gold" data-act="buy">${ico('coin', 22)} Satın al · ${p.price} jeton</button>` : `<button class="btn orange" data-act="needcoins">${ico('coin', 22)} Jeton yetmiyor · Jeton al</button>`}${ADS.mode !== 'off' ? `<button class="btn green" data-act="ad">${ico('ad', 22)} Reklam izle: +1 hak</button>` : ''}`,
+      title: p.name, head: 'gold', onClose: () => { if (!got) opts.onCancel?.(); },
+      body: `<div style="text-align:center;color:#e8890c;margin:2px 0 6px">${ico(icon, 84)}</div><p style="text-align:center;font-size:17px;font-weight:900">${p.desc}</p><p style="text-align:center;color:#b0182b;font-weight:900;margin-top:6px">Hakkın bitti</p>`,
+      foot: `<div style="display:flex;gap:10px;width:100%">${coinBtn}${adOk ? `<button class="btn green" data-act="ad">${ico('ad', 26)} Ücretsiz</button>` : ''}</div>`,
     });
-    this.onAct(c, { buy: () => { if (G.buyPower(kind)) c.close(); }, needcoins: () => { c.close(); this.shop('coins'); }, ad: async () => { if (await G.adPower(kind)) c.close(); } });
+    const done = () => { got = true; c.close(); opts.onGot?.(); };
+    this.onAct(c, { buy: () => { if (G.buyPower(kind)) done(); }, needcoins: () => { got = true; c.close(); this.shop('coins'); }, ad: async () => { if (await G.adPower(kind)) done(); } });
+  }
+
+  /** Kayıp ekranını son bilgilerle yeniden gösterir (VIP satın alma vazgeçilince). */
+  reshowFail() { if (this._failArgs && this.G.phase === 'ended') this.fail(this._failArgs); }
+
+  /** Kısa övgü yazısı ("Harika!"). */
+  praise(text) {
+    const el = document.createElement('div'); el.className = 'praise'; el.textContent = text; document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
   }
 
   convertDialog(busInfo) {

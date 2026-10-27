@@ -239,3 +239,9 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .pw .cnt.lv{background:#394a8a;color:#fff;font-size:9px;min-width:30px}
 .pw.shop .btn{background:linear-gradient(#ffd23f,#ff9a1f);color:#6a4300}
 .nav-btn.locked{opacity:.6;filter:grayscale(.5);position:relative}.nav-btn .lk{position:absolute;top:2px;right:6px;color:#fff;background:#59607a;border-radius:50%;width:18px;height:18px;display:grid;place-items:center}
+.mood{position:absolute;left:0;top:0;pointer-events:none;will-change:transform;z-index:6}
+.mood i{display:block;font-style:normal;font-size:30px;line-height:1;padding:7px 9px 8px;border-radius:18px;background:#fff;box-shadow:0 4px 0 rgba(0,0,0,.22);position:relative;animation:moodpop .45s cubic-bezier(.3,1.6,.5,1)}
+.mood i:after{content:"";position:absolute;left:14px;bottom:-9px;border:8px solid transparent;border-top-color:#fff;border-bottom:0}
+@keyframes moodpop{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+.praise{position:fixed;left:50%;top:34%;transform:translateX(-50%);z-index:60;pointer-events:none;font:900 40px/1 inherit;color:#fff;-webkit-text-stroke:2px #e8730c;paint-order:stroke fill;text-shadow:0 4px 0 #b2480a,0 8px 14px rgba(0,0,0,.35);animation:praiseup 1.2s ease-out forwards;white-space:nowrap}
+@keyframes praiseup{0%{transform:translate(-50%,10px) scale(.4);opacity:0}18%{transform:translate(-50%,0) scale(1.15);opacity:1}30%{transform:translate(-50%,0) scale(1)}100%{transform:translate(-50%,-46px) scale(1);opacity:0}}
