@@ -93,7 +93,7 @@ t('VIP hakkı bedeli 100 jeton, en çok 3 geri alma', VIP_CALL_PRICE === 100 && 
   const lb = new LocalBackend(sv);
   await lb.submitScore({ level: 3, stars: 2, extra: 3 }); await lb.submitScore({ level: 3, stars: 3, extra: 0 }); await lb.submitScore({ level: 3, stars: 1, extra: 9 }); await lb.submitScore({ level: 4, stars: 3, extra: 0 });
   const r = await lb.leaderboard();
-  t('Yerel sıralama: aynı seviyenin en iyisi sayılır (şişirme yok)', r.me.score === 2 * levelScore({ stars: 3, extra: 0 }) && r.local === true && r.rewards.join() === '500,300,150', String(r.me.score));
+  t('Yerel sıralama: aynı seviyenin en iyisi sayılır (şişirme yok)', r.me.score === 2 * levelScore({ stars: 3, extra: 0 }) && r.local === true && r.simulated === true, String(r.me.score));
 }
 
 // ---- Motor birim testleri

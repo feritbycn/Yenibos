@@ -170,7 +170,7 @@ check('Günlük ödül penceresinde haftalık sandık bölümü görünüyor', a
 // ---------- 9) Sıralama ekranı + sunucu hediye teslimi (sahte sunucu ile)
 await ev(() => { window.__game.ui.closeAll(); window.__game.ui.leaderboard(); }); await pg.waitForTimeout(500); await shot('leaderboard');
 const lbTxt = await ev(() => document.querySelector('.sheet-body')?.textContent || '');
-check('Sıralama ekranı: ödüller (500/300/150), kalan süre, sunucu-yok notu', /500/.test(lbTxt) && /300/.test(lbTxt) && /150/.test(lbTxt) && /Sunucu bağlı değil/.test(lbTxt) && /Hafta bitimine/.test(lbTxt), lbTxt.slice(0, 160));
+check('Sıralama ekranı: kalan süre, simüle-oyuncu notu, sahte ödül gösterilmez', !/500/.test(lbTxt) && /simüle/.test(lbTxt) && /Hafta bitimine/.test(lbTxt), lbTxt.slice(0, 160));
 await ev(() => window.__game.ui.closeAll());
 const gift = await ev(async () => {
   const g = window.__game; const d = g.save.data; const real = g.backend; const claimed = [];

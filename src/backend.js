@@ -5,6 +5,7 @@
 import { BACKEND } from './config.js';
 import { Clock } from './time.js';
 import { levelScore, weekEndsAt } from './clockmath.js';
+import { botEntries, langOf } from './bots.js';
 
 export class LocalBackend {
   constructor(save) { this.save = save; this.mode = 'local'; }
@@ -22,7 +23,16 @@ export class LocalBackend {
   weeklyTotal() { const d = this.save.data; return d.lb.week === Clock.weekKey() ? Object.values(d.lb.levels).reduce((a, b) => a + b, 0) : 0; }
   async leaderboard() {
     const total = this.weeklyTotal(); const name = this.save.data.account.name || 'Sen';
-    return { ok: true, local: true, week: Clock.weekKey(), endsAt: weekEndsAt(Clock.now(), BACKEND.dayOffsetMin), rewards: BACKEND.weeklyRewards, entries: total ? [{ rank: 1, name, score: total, you: true }] : [], me: { rank: total ? 1 : null, score: total } };
+    // Sunucu yokken liste SİMÜLE oyuncularla doldurulur (arayüzde belirtilir); ödül verilmez.
+    const now = Clock.now(), endsAt = weekEndsAt(now, BACKEND.dayOffsetMin);
+    const bots = botEntries({ weekKey: Clock.weekKey(), now, weekStart: endsAt - 7 * 86400000, weekEnd: endsAt, lang: langOf(globalThis.navigator?.language) });
+    const all = bots.map((b) => ({ name: b.name, score: b.score }));
+    if (total) all.push({ name, score: total, you: true });
+    all.sort((a, b) => b.score - a.score || (a.you ? -1 : 1));
+    const ranked = all.map((e, i) => ({ ...e, rank: i + 1 }));
+    const me = ranked.find((e) => e.you);
+    const top = ranked.slice(0, 20); if (me && me.rank > 20) top.push(me);
+    return { ok: true, local: true, simulated: true, week: Clock.weekKey(), endsAt, rewards: BACKEND.weeklyRewards, entries: top, me: { rank: me ? me.rank : null, score: total } };
   }
   async sync() { return { ok: true, local: true }; }
   async inbox() { return { ok: true, items: [] }; }

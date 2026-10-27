@@ -292,10 +292,10 @@ export class UI {
       if (c.closed) return;
       if (!r.ok) { c.setBody(`<p style="text-align:center">Sıralama şu an yüklenemedi. İnternet bağlantını kontrol et.</p>`); return; }
       const name = G.save.data.account.name;
-      const rew = (r.rewards || BACKEND.weeklyRewards).map((v, i) => `<div class="rw"><span>${medal[i] || i + 1 + '.'}</span><b>${v} 🪙</b></div>`).join('');
+      const rew = r.local ? '' : (r.rewards || BACKEND.weeklyRewards).map((v, i) => `<div class="rw"><span>${medal[i] || i + 1 + '.'}</span><b>${v} 🪙</b></div>`).join('');
       const rows = r.entries.length ? r.entries.map((e) => `<div class="lbrow ${e.you ? 'you' : ''}"><span class="rk">${medal[e.rank - 1] || e.rank}</span><span class="nm">${e.name.replace(/[<>&]/g, '')}${e.you ? ' (sen)' : ''}</span><b>${e.score}</b></div>`).join('') : '<p style="text-align:center;color:#58649a">Bu hafta henüz puan yok. Bir seviye bitir!</p>';
-      c.setBody(`<div class="lb-top"><div><small>Bu haftanın ödülleri</small><div class="rws">${rew}</div></div><div style="text-align:right"><small>Hafta bitimine</small><b>${fmtLeft(r.endsAt)}</b></div></div>
-        ${r.local ? `<p class="lb-note">Sunucu bağlı değil: yalnızca bu cihazdaki puanın görünür. Online sıralama için sunucu bağlanmalı (README → Sunucu altyapısı).</p>` : ''}
+      c.setBody(`<div class="lb-top"><div>${r.local ? '' : `<small>Bu haftanın ödülleri</small><div class="rws">${rew}</div>`}</div><div style="text-align:right"><small>Hafta bitimine</small><b>${fmtLeft(r.endsAt)}</b></div></div>
+        ${r.local ? `<p class="lb-note">Sunucu bağlı değil: sıralama şimdilik simüle oyuncularla gösterilir; bu liste için ödül verilmez. Gerçek online sıralama için sunucu bağlanmalı.</p>` : ''}
         <div class="lb">${rows}</div>
         <p style="text-align:center;margin-top:8px;font-size:13px">Senin puanın: <b>${r.me?.score || 0}</b>${r.me?.rank ? ` · Sıran: <b>${r.me.rank}</b>` : ''}</p>
         <p style="font-size:12px;color:#58649a;text-align:center">Puan = seviye başına en iyi sonucun (az hamle = yüksek puan). Aynı seviyeyi tekrar oynayarak puan şişirilemez.</p>
@@ -428,8 +428,8 @@ export class UI {
       const sizeOpts = [];
       if (busInfo.canSeat) sizeOpts.push(`<button class="opt ${sel?.type === 'seat' ? 'sel' : ''}" data-act="picks"><div style="color:#2fb36a">${ico('people', 34)}</div>Koltuk ekle<small style="color:#58649a">${busInfo.seats} → ${busInfo.seats + 1} koltuk</small></button>`);
       if (busInfo.canGrow) sizeOpts.push(`<button class="opt ${sel?.type === 'grow' ? 'sel' : ''}" data-act="pickg"><div style="color:#7a4dff">${ico('bus', 34)}</div>Uzat<small style="color:#58649a">${busInfo.seats} → ${busInfo.seats + 2} koltuk</small></button>`);
-      c.setBody(`<p>Seçili otobüsün rengini değiştir ya da kapasitesini artır. Daha çok koltuk, o renkten daha çok yolcuyu taşır; bulmaca bozulmaz.</p>
-        ${busInfo.colors.length ? `<b>Renk (kapasite ${busInfo.seats} sabit)</b><div class="opts" style="margin-top:6px">${colors}</div>` : '<p style="color:#58649a">Kalan yolcu renkleri için başka renk yok.</p>'}
+      c.setBody(`<p>Seçili otobüsün kapasitesini artır (koltuk ekle ya da uzat). Daha çok koltuk, o renkten daha çok yolcuyu taşır; bulmaca bozulmaz.</p>
+        
         ${sizeOpts.length ? `<b>Kapasite</b><div class="opts" style="margin-top:6px">${sizeOpts.join('')}</div>` : ''}
         <p style="font-size:12px;color:#58649a">Bu seviyede kalan hak: <b>${busInfo.left}</b></p>`);
       c.setFoot(sel ? `<button class="btn green" data-act="item">${ico('convert', 22)} Uygula (1 Değiştir hakkı)</button>` : `<button class="btn gray" disabled>Bir seçenek seç</button>`);

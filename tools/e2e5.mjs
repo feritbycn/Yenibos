@@ -164,6 +164,12 @@ check('Görevlerde "Tümünü al": hepsi tek seferde alınır', ca.n >= 1 && ca.
 const hs = await ev(() => { const g = window.__game; g.ui.closeAll(); document.querySelector('#btnShop').click(); return g.ui.modals.length; });
 check('Oyun ekranında Mağaza düğmesi mağazayı açar', hs === 1);
 await ev(() => window.__game.ui.closeAll());
+// ---------- 7) Değiştir penceresinde renk seçeneği yok; sıralamada simüle oyuncular dürüstçe belirtilir
+const cd = await ev(() => { const g = window.__game; g.ui.closeAll(); const b = g.state.buses.find((x) => x.st === 'board' && !x.vip); g.openConvert(b.id); const t = document.querySelector('.modal')?.textContent || ''; const r = { colorOpts: document.querySelectorAll('[data-act=pickc]').length, mentionsColor: /Renk \(kapasite/.test(t) }; g.ui.closeAll(); return r; });
+check('Değiştir: otobüs rengi değiştirme seçeneği yok', cd.colorOpts === 0 && !cd.mentionsColor, JSON.stringify(cd));
+const lbx = await ev(async () => { const g = window.__game; g.ui.closeAll(); g.ui.leaderboard(); await new Promise((r) => setTimeout(r, 400)); return { rows: document.querySelectorAll('.lbrow').length, note: !!document.querySelector('.lb-note') }; });
+check('Sıralama dolu ve simülasyon notu görünür', lbx.rows >= 20 && lbx.note, JSON.stringify(lbx));
+await ev(() => window.__game.ui.closeAll());
 check('Konsol hatası yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 const f = results.filter((r) => !r.ok).length; console.log(`\n${results.length - f}/${results.length} geçti`);
 await browser.close(); srv.close(); process.exit(f ? 1 : 0);
