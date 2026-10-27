@@ -3,7 +3,7 @@ import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
 const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
-import { PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
+import { UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
 import { Clock } from './time.js';
 import { Preview } from './preview.js';
 
@@ -115,7 +115,7 @@ export class UI {
         <button class="nav-btn rank" data-act="rank">${ico('trophy', 28)}Sıralama</button>
         <button class="nav-btn quest" data-act="quests">${ico('list', 28)}Görevler${qc ? '<i class="dot"></i>' : ''}</button>
         <button class="nav-btn gift" data-act="daily">${ico('gift', 28)}Günlük${claim ? '<i class="dot"></i>' : ''}</button>
-        <button class="nav-btn vip" data-act="vip">${ico('vip', 28)}VIP</button>
+        <button class="nav-btn vip ${d.level < UNLOCKS.vipcall ? 'locked' : ''}" data-act="vip">${ico('vip', 28)}VIP${d.level < UNLOCKS.vipcall ? `<i class="lk">${ico('lock', 14)}</i>` : ''}</button>
       </div>`;
     this.setCoins(d.coins);
   }
@@ -123,7 +123,7 @@ export class UI {
     this.menuEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       this.G.sound.unlock(); this.G.sound.play('click');
-      ({ play: () => this.G.startLevel(this.G.save.data.level), shop: () => this.shop(), collection: () => this.collection(), quests: () => this.quests(), daily: () => this.daily(), rank: () => this.leaderboard(), vip: () => this.vipPanel(), settings: () => this.settings(false) })[b.dataset.act]?.();
+      ({ play: () => this.G.startLevel(this.G.save.data.level), shop: () => this.shop(), collection: () => this.collection(), quests: () => this.quests(), daily: () => this.daily(), rank: () => this.leaderboard(), vip: () => { if (this.G.save.data.level < UNLOCKS.vipcall) { this.toast(`VIP bölümü Seviye ${UNLOCKS.vipcall}'de açılır.`); return; } this.vipPanel(); }, settings: () => this.settings(false) })[b.dataset.act]?.();
     });
   }
 
@@ -153,7 +153,7 @@ export class UI {
       } else if (tab === 'packs') {
         body = `<p>Jetonla alınan paketler: tek tek almaktan daha ucuz. (Gerçek para ödemesi yok.)</p><div class="list">${PACKS.map((pk) => `<div class="item"><div style="color:#7a4dff">${ico('gift', 34)}</div><div class="t"><b>${pk.name} <span style="color:#2fa84f;font-size:12px">${pk.tag}</span></b><small>${Object.entries(pk.items).map(([k, n]) => `${n}× ${POWER_INFO[k].name}`).join(' · ')}</small></div><button class="btn gold" data-act="buypack" data-id="${pk.id}">${ico('coin', 16)} ${pk.price}</button></div>`).join('')}</div>`;
       } else if (tab === 'power') {
-        body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', convert: 'convert', extraSlot: 'plus', moves: 'play', time: 'clock', vip: 'vip', shuffle: 'shuffle' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
+        body = `<div class="list">${Object.entries(POWER_INFO).filter(([k]) => !['undo', 'recall', 'convert'].includes(k)).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', convert: 'convert', extraSlot: 'plus', moves: 'play', time: 'clock', vip: 'vip', shuffle: 'shuffle' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
       } else {
         const n = d.perm.slots;
         body = `<p>Kalıcı park alanları tüm seviyelerde açık kalır. Reklamla açılan alanlar ise yalnızca o seviyede geçerlidir.</p><div class="list">${PRICES.permSlot.map((pr, i) => `<div class="item"><div style="color:${i < n ? '#2fd06a' : '#7a4dff'}">${ico(i < n ? 'check' : 'plus', 34)}</div><div class="t"><b>Kalıcı Park Yeri ${i + 1}/3</b><small>${i < n ? 'Açıldı' : i === n ? 'Sıradaki açılım' : 'Önceki alanı aç'}</small></div>${i < n ? '' : `<button class="btn gold" data-act="permslot" ${i === n ? '' : 'disabled'}>${ico('coin', 16)} ${pr}</button>`}</div>`).join('')}</div>`;
@@ -232,10 +232,18 @@ export class UI {
     });
   }
 
+  /** Yeni açılan özellik tanıtımı. VIP için 3D önizleme, diğerleri kısa açıklama. */
+  unlockIntro(kind) {
+    if (kind === 'vipcall') { this.vipPreview(); return; }
+    const info = { call: ['Çağır açıldı!', 'call', 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır. Sıradaki yolcunun rengindeki otobüsü bulmak için ideal.'], shuffle: ['Karıştır açıldı!', 'shuffle', 'Tahtadaki otobüslerin yerlerini yeniden dizer; seviye hâlâ çözülebilir kalır. Sıkıştığında kullan.'] }[kind];
+    const c = this.modal({ title: info[0], head: 'gold', closable: false, body: `<div style="text-align:center;color:#2f6bff;margin:6px 0">${ico(info[1], 64)}</div><p style="text-align:center">${info[2]}</p><p style="text-align:center;font-size:13px;color:#58649a">Alt çubuktaki düğmeden kullanırsın. Hakkın bitince jeton ya da reklamla alabilirsin.</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>` });
+    this.onAct(c, { ok: () => c.close() });
+  }
+
   // eğitim: VIP önizleme (3D)
   vipPreview(onDone) {
     const G = this.G; const d = G.save.data;
-    const c = this.modal({ title: 'VIP Hakkı', head: 'gold', closable: false, body: `<div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div><p style="margin-top:10px;text-align:center"><b>VIP hakkı</b>: istediğin otobüsü seç, VIP alanına gelsin. Kendi rengindeki yolcuları <b>kuyruğun her yerinden</b> alır (önce öndekiler). Sana <b>1 VIP hakkı</b> hediye!</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>`, onClose: () => onDone?.() });
+    const c = this.modal({ title: 'VIP Hakkı', head: 'gold', closable: false, body: `<div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div><p style="margin-top:10px;text-align:center"><b>VIP alanı açıldı!</b> <b>VIP hakkı</b>: istediğin otobüsü seç, VIP alanına gelsin. Kendi rengindeki yolcuları <b>kuyruğun her yerinden</b> alır (önce öndekiler). Sana <b>1 VIP hakkı</b> hediye!</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>`, onClose: () => onDone?.() });
     const pv = new Preview(c.q('.preview')); c.preview = pv; pv.show({ vip: true, vipSkin: d.equipped.vipSkin, rim: d.equipped.rim, len: 3 });
     this.onAct(c, { ok: () => c.close() });
   }
@@ -292,10 +300,9 @@ export class UI {
       if (c.closed) return;
       if (!r.ok) { c.setBody(`<p style="text-align:center">Sıralama şu an yüklenemedi. İnternet bağlantını kontrol et.</p>`); return; }
       const name = G.save.data.account.name;
-      const rew = r.local ? '' : (r.rewards || BACKEND.weeklyRewards).map((v, i) => `<div class="rw"><span>${medal[i] || i + 1 + '.'}</span><b>${v} 🪙</b></div>`).join('');
       const rows = r.entries.length ? r.entries.map((e) => `<div class="lbrow ${e.you ? 'you' : ''}"><span class="rk">${medal[e.rank - 1] || e.rank}</span><span class="nm">${e.name.replace(/[<>&]/g, '')}${e.you ? ' (sen)' : ''}</span><b>${e.score}</b></div>`).join('') : '<p style="text-align:center;color:#58649a">Bu hafta henüz puan yok. Bir seviye bitir!</p>';
-      c.setBody(`<div class="lb-top"><div>${r.local ? '' : `<small>Bu haftanın ödülleri</small><div class="rws">${rew}</div>`}</div><div style="text-align:right"><small>Hafta bitimine</small><b>${fmtLeft(r.endsAt)}</b></div></div>
-        ${r.local ? `<p class="lb-note">Sunucu bağlı değil: sıralama şimdilik simüle oyuncularla gösterilir; bu liste için ödül verilmez. Gerçek online sıralama için sunucu bağlanmalı.</p>` : ''}
+      c.setBody(`<div class="lb-top"><div><small>Haftanın 1.'sine ödül</small><div class="rws"><div class="rw"><span>🥇</span><b>${(r.rewards || BACKEND.weeklyRewards)[0]} 🪙 altın</b></div></div>${r.local ? '<small style="display:block;color:#58649a">Online sıralama açılınca verilecek</small>' : ''}</div><div style="text-align:right"><small>Hafta bitimine</small><b>${fmtLeft(r.endsAt)}</b></div></div>
+        ${r.local ? `<p class="lb-note">Sunucu bağlı değil: sıralama şimdilik simüle oyuncularla gösterilir; ödül yalnızca gerçek online sıralamada verilir. Gerçek online sıralama için sunucu bağlanmalı.</p>` : ''}
         <div class="lb">${rows}</div>
         <p style="text-align:center;margin-top:8px;font-size:13px">Senin puanın: <b>${r.me?.score || 0}</b>${r.me?.rank ? ` · Sıran: <b>${r.me.rank}</b>` : ''}</p>
         <p style="font-size:12px;color:#58649a;text-align:center">Puan = seviye başına en iyi sonucun (az hamle = yüksek puan). Aynı seviyeyi tekrar oynayarak puan şişirilemez.</p>

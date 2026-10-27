@@ -1,5 +1,5 @@
 // Mağaza kataloğu, günlük ödüller, görevler ve başarılar.
-import { PRICES } from './config.js';
+import { PRICES, UNLOCKS } from './config.js';
 import { makeRng } from './rng.js';
 import { Clock } from './time.js';
 import { dayDiffKeys } from './clockmath.js';
@@ -57,7 +57,7 @@ export const POWER_INFO = {
 };
 
 export const DAILY_REWARDS = [
-  { coins: 20 }, { coins: 25 }, { coins: 30, power: ['undo', 1] }, { coins: 35 }, { coins: 40, power: ['hint', 1] }, { coins: 50 }, { coins: 80, power: ['call', 1] },
+  { coins: 20 }, { coins: 25 }, { coins: 30, power: ['call', 1] }, { coins: 35 }, { coins: 40, power: ['hint', 1] }, { coins: 50 }, { coins: 80, power: ['call', 1] },
 ];
 
 /** Güvenilir (sunucu veya geri alınamayan yerel) saate göre bugünün anahtarı. */
@@ -90,9 +90,10 @@ export function ensureDailyQuests(save) {
   const d = save.data; const key = dayKey();
   if (d.quests.list.length && key <= d.quests.date) return false;   // gün değişmedi ya da saat geri alındı: görevler yenilenmez
   const rng = makeRng([...key].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7));
-  const pool = QUEST_POOL.slice(); rng.shuffle(pool);
+  const vipOk = (d.level || 1) >= UNLOCKS.vipcall;   // VIP henüz açılmadıysa VIP görevi verilmez
+  const pool = QUEST_POOL.filter((q) => vipOk || q.id !== 'vip1'); rng.shuffle(pool);
   // her gün şartnamedeki dört örnek görevden en az üçü yer alsın
-  const core = ['levels3', 'pass20', 'vip1', 'puz5'];
+  const core = ['levels3', 'pass20', 'vip1', 'puz5'].filter((id) => vipOk || id !== 'vip1');
   const pick = [...core.filter(() => rng() < 0.85)];
   for (const q of pool) if (pick.length < 4 && !pick.includes(q.id)) pick.push(q.id);
   const final = pick.slice(0, 4);

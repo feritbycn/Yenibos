@@ -10,7 +10,7 @@ import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
+import { UNLOCKS, PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
 import { Notifier } from './notify.js';
 import { shuffleLayout } from './levelgen.js';
 import { makeRng } from './rng.js';
@@ -21,8 +21,9 @@ import { SHOP, DAILY_REWARDS, POWER_INFO, ACHIEVEMENTS, ensureDailyQuests, quest
 
 const $ = (s) => document.querySelector(s);
 const POWER_BAR = [
-  ['undo', 'Geri Al', 'undo'], ['hint', 'İpucu', 'hint'], ['recall', 'Geri Çağır', 'recall'], ['call', 'Çağır', 'call'], ['convert', 'Değiştir', 'convert'], ['shuffle', 'Karıştır', 'shuffle'], ['vipcall', 'VIP', 'vip'],
+  ['hint', 'İpucu', 'hint'], ['call', 'Çağır', 'call'], ['shuffle', 'Karıştır', 'shuffle'], ['vipcall', 'VIP', 'vip'], ['shop', 'Mağaza', 'shop'],
 ];
+const unlockOf = (k) => UNLOCKS[k] || 1;
 
 export class Game {
   constructor(opts = {}) {
@@ -107,13 +108,13 @@ export class Game {
 
   // ---------------------------------------------------------------- HUD
   bindHud() {
-    $('#btnPause').innerHTML = ico('pause', 26); $('#btnShop').innerHTML = ico('shop', 26);
-    $('#btnShop').addEventListener('click', () => { if (this.phase === 'play' && !this.paused) { this.sound.play('click'); this.ui.shop('power'); } });
+    $('#btnPause').innerHTML = ico('pause', 26);
+
     $('#btnPause').addEventListener('click', () => { if (this.phase !== 'play') return; this.sound.play('click'); this.pause(); });
     $('#hudCoins').addEventListener('click', () => { if (this.phase === 'play') { this.sound.play('click'); this.ui.shop('power'); } });
     $('#chipMoves').addEventListener('click', () => this.offerMoves());
     $('#chipTime').addEventListener('click', () => this.offerTime());
-    $('#powerBar').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b) this.onPower(b.dataset.p); });
+    $('#powerBar').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b) this.onPowerTap(b.dataset.p); });
     $('#modeBanner').addEventListener('click', (e) => { if (e.target.closest('[data-cancel]')) { this.setMode(null); this.scene.idleFired = false; } });
   }
 
@@ -121,6 +122,8 @@ export class Game {
     const d = this.save.data;
     $('#powerBar').innerHTML = POWER_BAR.map(([k, name, ic]) => {
       let cnt = '';
+      if (k === 'shop') return `<button class="pw shop" data-p="shop" aria-label="Mağaza"><span class="btn">${ico('shop', 28)}</span><span class="cnt ad" style="visibility:hidden">.</span><span>Mağaza</span></button>`;
+      if (!this.isUnlocked(k)) return `<button class="pw ${k} locked" data-p="${k}" aria-label="${name} (kilitli)"><span class="btn">${ico(ic, 28)}<i class="lk">${ico('lock', 16)}</i></span><span class="cnt lv">Sv ${unlockOf(k)}</span><span>${name}</span></button>`;
       if (['undo', 'hint', 'recall', 'call', 'convert', 'vipcall', 'shuffle'].includes(k)) { const n = d.powerups[k === 'vipcall' ? 'vip' : k]; cnt = `<span class="cnt ${n ? '' : 'zero'}">${n || '+'}</span>`; }
       else cnt = `<span class="cnt ad">${ico('ad', 12)}</span>`;
       return `<button class="pw ${k}" data-p="${k}" aria-label="${name}"><span class="btn">${ico(ic, 28)}</span>${cnt}<span>${name}</span></button>`;
@@ -197,7 +200,7 @@ export class Game {
   startLevel(n) {
     this.ui.closeAll(); this.sound.unlock(); this.setMode(null);
     const d = this.save.data;
-    this.levelN = n; this.lvl = this.peekLevel(n); this.stageIdx = 0; this.assists = 0; this.prevPassengers = 0; this.vipCounted = false; this.paused = false;
+    this.levelN = n; this.scene.vipLocked = !this.isUnlocked('vipcall'); this.lvl = this.peekLevel(n); this.stageIdx = 0; this.assists = 0; this.prevPassengers = 0; this.vipCounted = false; this.paused = false;
     this.moveCount = 0; this.prevNormal = 0; this.moveLog = []; this.revives = 0; this.neededMoves = this.lvl.stages.reduce((a, st) => a + st.buses.filter((b) => !b.v).length, 0);
     if (d.temp.level !== n) d.temp = { level: n, slots: [], conv: 0, vipCalls: 0 };
     this.extraMoves = 0; this.timeLeft = this.lvl.timeLimit ?? null;
@@ -228,11 +231,16 @@ export class Game {
   }
 
   /** VIP hakkı tanıtımı: 2. seviyeden itibaren yalnızca BİR kez. (Eğitim sadece 1. seviyededir.) */
+  /** Açılan özelliği (call / vipcall / shuffle) bir kez tanıtır. Önceden VIP tanıtımını görmüş oyuncuya tekrar göstermez. */
   maybeVipIntro() {
-    const d = this.save.data; if (d.tutorial.vip || !d.tutorial.enabled || this.tut.active || this.levelN < 2) return;
+    const d = this.save.data; const tu = d.tutorial; if (this.tut.active) return;
+    if (tu.vip) tu.intro.vipcall = true;
+    const kind = ['call', 'vipcall', 'shuffle'].find((k) => this.levelN >= unlockOf(k) && !tu.intro[k]);
+    if (!kind) return;
     setTimeout(() => {
-      if (d.tutorial.vip || this.phase !== 'play' || this.ui.hasModal || this.paused || this.tut.active) return;
-      d.tutorial.vip = true; this.save.save(true); this.ui.vipPreview();
+      if (tu.intro[kind] || this.phase !== 'play' || this.ui.hasModal || this.paused || this.tut.active) return;
+      tu.intro[kind] = true; if (kind === 'vipcall') tu.vip = true; this.save.save(true);
+      this.sound.play('unlock'); this.ui.unlockIntro(kind);
     }, 1200);
   }
 
@@ -331,7 +339,7 @@ export class Game {
       if (id === null || id === undefined) { this.ui.toast('Bu alanda otobüs yok.'); return; }
       this.doRecall(id); return;
     }
-    if (i === 'V') { if (this.mode === 'vip') { this.setMode(null); return; } if (s.vipSlot !== null) { this.ui.toast('VIP alanı dolu. Otobüs dolup kalkınca tekrar kullanabilirsin.'); return; } this.sound.play('click'); this.onPower('vipcall'); return; }
+    if (i === 'V') { if (!this.isUnlocked('vipcall')) { this.ui.toast(`VIP alanı Seviye ${unlockOf('vipcall')}'de açılır.`); return; } if (this.mode === 'vip') { this.setMode(null); return; } if (s.vipSlot !== null) { this.ui.toast('VIP alanı dolu. Otobüs dolup kalkınca tekrar kullanabilirsin.'); return; } this.sound.play('click'); this.onPower('vipcall'); return; }
     if (!s.slotOpen[i]) { if (this.tut.active && this.tut.cur?.kind !== 'slot') return; this.sound.play('click'); this.ui.slotOffer(); }
   }
 
@@ -402,7 +410,7 @@ export class Game {
     d.stats.levels++; if (stars === 3) d.stats.threeStars++;
     d.ads.since++; this.skipInterstitial = false;
     let rewardPower = null;
-    if (n % 5 === 0) { rewardPower = ['undo', 'hint', 'recall', 'call', 'extraSlot'][(n / 5) % 5]; d.powerups[rewardPower]++; }
+    if (n % 5 === 0) { rewardPower = ['hint', 'call', 'shuffle', 'vip', 'extraSlot'][(n / 5) % 5]; d.powerups[rewardPower]++; }
     if (n === 1) d.tutorial.l1 = true; if (n === 2) d.tutorial.l2 = true;
     this.emit('level', 1, false); if (stars === 3) this.emit('threeStar', 1, false);
     this.addCoins(coins, false);
@@ -503,10 +511,18 @@ export class Game {
   claimAch(id) { const d = this.save.data; const a = ACHIEVEMENTS.find((x) => x.id === id); if (!a || d.ach.claimed[id] || (d.stats[a.stat] || 0) < a.goal) return; d.ach.claimed[id] = true; this.addCoins(a.reward, false); this.sound.play('coin'); this.save.save(true); this.ui.renderMenu(); }
 
   applySettings() { const s = this.save.data.settings; this.sound.setSound(s.sound); this.sound.setVibe(s.vibe); this.scene.setQuality(s.quality); this.save.save(true); }
-  resetTutorial() { const t = this.save.data.tutorial; t.l1 = false; t.l2 = false; t.vip = false; t.enabled = true; this.save.save(true); }
+  resetTutorial() { const t = this.save.data.tutorial; t.l1 = false; t.l2 = false; t.vip = false; t.intro = {}; t.enabled = true; this.save.save(true); }
   resetProgress() { this.save.reset(); this.sound.setSound(true); this.goMenu(); this.ui.toast('İlerleme sıfırlandı.'); }
 
   // ---------------------------------------------------------------- güçlendiriciler
+  isUnlocked(k) { return this.levelN >= unlockOf(k); }
+  /** Alt çubuk düğmesi: kilitliyse bilgi verir, mağaza doğrudan açılır, diğerleri onPower'a gider. */
+  onPowerTap(k) {
+    if (this.phase !== 'play' || this.paused) return;
+    if (k === 'shop') { this.sound.play('click'); this.ui.shop('power'); return; }
+    if (!this.isUnlocked(k)) { this.sound.play('error'); this.ui.toast(`${POWER_INFO[k === 'vipcall' ? 'vip' : k].name} Seviye ${unlockOf(k)}'de açılır.`); return; }
+    this.onPower(k);
+  }
   onPower(kind) {
     if (this.phase !== 'play' || this.paused) return;
     if (this.tut.active) { this.ui.toast('Önce eğitimi tamamla.'); return; }

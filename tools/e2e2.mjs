@@ -20,7 +20,7 @@ const S = () => ev(() => { const g = window.__game; const s = g.state; return { 
 async function idle(maxSec = 60) { for (let i = 0; i < maxSec * 3; i++) { await ff(0.34); const s = await S(); if (!s.busy) { await ff(0.4); if (!(await S()).busy) return S(); } } return S(); }
 
 await pg.goto(`http://localhost:${port}/index.html?shot=1`); await pg.waitForTimeout(1500);
-await ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; g.save.data.coins = 5000; });
+await ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; t.intro = { call: true, vipcall: true, shuffle: true }; g.save.data.coins = 5000; });
 
 // ---------- 1) Tüm seviyeler çözüm sırasıyla kazanılır
 const LEVELS = +(process.env.LEVELS || 40);
@@ -151,7 +151,7 @@ await ev(() => localStorage.setItem('busPuzzleDeluxe.save.v1', '{"coins":"abc","
 const safe = await ev(() => { const d = window.__game.save.data; return { coins: d.coins, level: d.level, style: d.owned.style }; });
 check('Bozuk kayıt güvenle varsayılana düşüyor', safe.level === 1 && safe.coins === 60 && safe.style.includes('city'), JSON.stringify(safe));
 // görevler
-await ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; g.startLevel(3); }); await ff(0.3);
+await ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; t.intro = { call: true, vipcall: true, shuffle: true }; g.startLevel(3); }); await ff(0.3);
 const ord = await ev(() => window.__game.lvl.stages[0].solution.slice());
 for (const id of ord) { await idle(30); await ev((id) => window.__game.handleTap(id), id); }
 await idle(60); await ff(1);

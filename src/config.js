@@ -44,13 +44,15 @@ export const PRICES = {
   convert: 100, seat: 60,
 };
 export const CONV_LIMIT = 3;   // seviye başına otobüs değiştirme/koltuk ekleme hakkı
+/** Oyun içi güçlendirmelerin açılma seviyesi (bu seviyeye gelince açılır ve tanıtılır). Listede olmayan = baştan açık. */
+export const UNLOCKS = { call: 3, vipcall: 6, shuffle: 8 };
 export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'convert', 'moves', 'time', 'vip', 'shuffle'];
 /** Jetonla alınan paketler (gerçek para değil). */
 export const PACKS = [
-  { id: 'starter', name: 'Başlangıç Paketi', price: 420, items: { undo: 3, hint: 3, shuffle: 2, vip: 2 }, tag: 'Popüler' },
+  { id: 'starter', name: 'Başlangıç Paketi', price: 420, items: { hint: 3, call: 2, shuffle: 2, vip: 2 }, tag: 'Popüler' },
   { id: 'vip5', name: 'VIP Paketi', price: 400, items: { vip: 5 }, tag: '%20 indirim' },
   { id: 'shuffle5', name: 'Karıştır Paketi', price: 360, items: { shuffle: 5 }, tag: '%20 indirim' },
-  { id: 'master', name: 'Usta Paketi', price: 1100, items: { undo: 5, hint: 5, recall: 3, call: 3, shuffle: 4, vip: 5 }, tag: 'En avantajlı' },
+  { id: 'master', name: 'Usta Paketi', price: 1100, items: { hint: 5, call: 5, shuffle: 4, vip: 5 }, tag: 'En avantajlı' },
 ];
 
 // Gerçek para ile jeton paketleri. mode 'off' iken satın alma çalışmaz ve jeton verilmez (README).

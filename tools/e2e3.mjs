@@ -19,7 +19,7 @@ const ev = (fn, arg) => pg.evaluate(fn, arg);
 const ff = (sec) => ev((s) => { const g = window.__game; g.scene.noRender = true; for (let i = 0; i < s * 30; i++) g.frame(1 / 30); g.scene.noRender = false; }, sec);
 const S = () => ev(() => { const g = window.__game; const s = g.state; return { phase: g.phase, qi: s.qi, total: s.queue.length, parked: s.buses.filter((b) => b.st === 'parked').length, board: s.buses.filter((b) => b.st === 'board').length, coins: g.save.data.coins, modals: g.ui.modals.length, busy: g.scene.isBusy(), moveCount: g.moveCount, revives: g.revives }; });
 async function idle(maxSec = 60) { for (let i = 0; i < maxSec * 3; i++) { await ff(0.34); const s = await S(); if (!s.busy) { await ff(0.4); if (!(await S()).busy) return S(); } } return S(); }
-const prep = () => ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; g.save.data.coins = 5000; });
+const prep = () => ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; t.intro = { call: true, vipcall: true, shuffle: true }; g.save.data.coins = 5000; });
 
 // ---------- 1) Açılış animasyonu
 await pg.goto(`http://localhost:${port}/index.html?splash=9000`);
@@ -170,7 +170,7 @@ check('Günlük ödül penceresinde haftalık sandık bölümü görünüyor', a
 // ---------- 9) Sıralama ekranı + sunucu hediye teslimi (sahte sunucu ile)
 await ev(() => { window.__game.ui.closeAll(); window.__game.ui.leaderboard(); }); await pg.waitForTimeout(500); await shot('leaderboard');
 const lbTxt = await ev(() => document.querySelector('.sheet-body')?.textContent || '');
-check('Sıralama ekranı: kalan süre, simüle-oyuncu notu, sahte ödül gösterilmez', !/500/.test(lbTxt) && /simüle/.test(lbTxt) && /Hafta bitimine/.test(lbTxt), lbTxt.slice(0, 160));
+check('Sıralama ekranı: kalan süre, simüle-oyuncu notu, 1. ödül 500 altın yazar', /500/.test(lbTxt) && /simüle/.test(lbTxt) && /Hafta bitimine/.test(lbTxt), lbTxt.slice(0, 160));
 await ev(() => window.__game.ui.closeAll());
 const gift = await ev(async () => {
   const g = window.__game; const d = g.save.data; const real = g.backend; const claimed = [];

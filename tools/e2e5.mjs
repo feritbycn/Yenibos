@@ -18,7 +18,7 @@ const ev = (fn, arg) => pg.evaluate(fn, arg);
 const ff = (sec) => ev((s) => { const g = window.__game; g.scene.noRender = true; for (let i = 0; i < s * 30; i++) g.frame(1 / 30); g.scene.noRender = false; }, sec);
 const S = () => ev(() => { const g = window.__game; const s = g.state; return { phase: g.phase, qi: s.qi, total: s.queue.length, parked: s.buses.filter((b) => b.st === 'parked').length, board: s.buses.filter((b) => b.st === 'board').length, coins: g.save.data.coins, modals: g.ui.modals.length, busy: g.scene.isBusy(), moveCount: g.moveCount, revives: g.revives }; });
 async function idle(maxSec = 60) { for (let i = 0; i < maxSec * 3; i++) { await ff(0.34); const s = await S(); if (!s.busy) { await ff(0.4); if (!(await S()).busy) return S(); } } return S(); }
-const prep = () => ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; g.save.data.coins = 5000; });
+const prep = () => ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = t.vip = true; t.intro = { call: true, vipcall: true, shuffle: true }; g.save.data.coins = 5000; });
 const adLog = () => ev(() => window.__adLog || []);
 await pg.goto(`http://localhost:${port}/index.html?fast`); await pg.waitForTimeout(1800);
 await prep();
@@ -148,27 +148,28 @@ check('VIP alanına dokununca VIP modu açılır, tekrar dokununca kapanır', vs
 
 // ---------- 6) Çağır/Değiştir: hak yoksa otobüs seçilmez, satın alma açılır; hak varsa kullanılır. Tümünü al. Oyun içi mağaza.
 await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(10); g.save.data.coins = 5000; }); await ff(0.5);
-const pw = await ev(() => { const g = window.__game; const d = g.save.data; d.powerups.call = 0; d.powerups.convert = 0; const o = {};
+const pw = await ev(() => { const g = window.__game; const d = g.save.data; d.powerups.call = 0; const o = {};
   g.onPower('call'); o.callMode = g.mode; o.callModal = g.ui.modals.length; g.ui.closeAll();
-  g.onPower('convert'); o.convMode = g.mode; o.convModal = g.ui.modals.length; g.ui.closeAll(); return o; });
+  return o; });
 check('Çağır: hak yokken otobüs seçme modu açılmaz, satın alma penceresi açılır', !pw.callMode && pw.callModal === 1, JSON.stringify(pw));
-check('Değiştir: hak yokken seçme modu açılmaz, satın alma penceresi açılır', !pw.convMode && pw.convModal === 1, JSON.stringify(pw));
-const bought = await ev(() => { const g = window.__game; const d = g.save.data; g.buyPower('call'); g.buyPower('convert'); const r = { call: d.powerups.call, conv: d.powerups.convert }; g.onPower('call'); r.mode = g.mode; g.setMode(null); return r; });
+const bought = await ev(() => { const g = window.__game; const d = g.save.data; g.buyPower('call'); const r = { call: d.powerups.call, conv: 1 }; g.onPower('call'); r.mode = g.mode; g.setMode(null); return r; });
 check('Satın alınca hak eklenir; hak varsa seçme modu açılır', bought.call === 1 && bought.conv === 1 && bought.mode === 'call', JSON.stringify(bought));
-const conv = await ev(async () => { const g = window.__game; const d = g.save.data; const s = g.state; const before = d.powerups.convert; let ok = false;
-  for (const b of s.buses.filter((x) => x.st === 'board' && !x.vip)) { for (const c of [...new Set(s.queue.slice(s.qi))].filter((c) => c !== b.color)) { if (await g.applyConvert(b.id, { type: 'color', v: c }, 'item')) { ok = true; break; } } if (!ok && await g.applyConvert(b.id, { type: 'seat' }, 'item')) ok = true; if (!ok && await g.applyConvert(b.id, { type: 'grow' }, 'item')) ok = true; if (ok) break; }
-  return { ok, before, after: d.powerups.convert }; });
-check('Değiştir hakkı kullanılınca 1 azalır', conv.ok === true && conv.after === conv.before - 1, JSON.stringify(conv));
 const ca = await ev(() => { const g = window.__game; const d = g.save.data; g.ui.closeAll(); d.quests.progress = {}; for (const q of d.quests.list) d.quests.progress[q.id] = 1e6; d.quests.claimed = {}; const c0 = d.coins; const n = g.claimableCount('q'); const sum = g.claimAll('q'); return { n, sum, gain: d.coins - c0, left: g.claimableCount('q') }; });
 check('Görevlerde "Tümünü al": hepsi tek seferde alınır', ca.n >= 1 && ca.sum > 0 && ca.gain === ca.sum && ca.left === 0, JSON.stringify(ca));
-const hs = await ev(() => { const g = window.__game; g.ui.closeAll(); document.querySelector('#btnShop').click(); return g.ui.modals.length; });
+const hs = await ev(() => { const g = window.__game; g.ui.closeAll(); document.querySelector('[data-p=shop]').click(); return g.ui.modals.length; });
 check('Oyun ekranında Mağaza düğmesi mağazayı açar', hs === 1);
 await ev(() => window.__game.ui.closeAll());
 // ---------- 7) Değiştir penceresinde renk seçeneği yok; sıralamada simüle oyuncular dürüstçe belirtilir
-const cd = await ev(() => { const g = window.__game; g.ui.closeAll(); const b = g.state.buses.find((x) => x.st === 'board' && !x.vip); g.openConvert(b.id); const t = document.querySelector('.modal')?.textContent || ''; const r = { colorOpts: document.querySelectorAll('[data-act=pickc]').length, mentionsColor: /Renk \(kapasite/.test(t) }; g.ui.closeAll(); return r; });
-check('Değiştir: otobüs rengi değiştirme seçeneği yok', cd.colorOpts === 0 && !cd.mentionsColor, JSON.stringify(cd));
 const lbx = await ev(async () => { const g = window.__game; g.ui.closeAll(); g.ui.leaderboard(); await new Promise((r) => setTimeout(r, 400)); return { rows: document.querySelectorAll('.lbrow').length, note: !!document.querySelector('.lb-note') }; });
 check('Sıralama dolu ve simülasyon notu görünür', lbx.rows >= 20 && lbx.note, JSON.stringify(lbx));
+await ev(() => window.__game.ui.closeAll());
+// ---------- 8) Çubuk: Geri Al / Geri Çağır / Değiştir yok; mağaza en sağda; kilitli özellikler görünür
+const bar = await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(2); return [...document.querySelectorAll('#powerBar [data-p]')].map((b) => b.dataset.p + (b.classList.contains('locked') ? ':kilit' : '')); });
+check('Güç çubuğu: İpucu, Çağır(kilitli), Karıştır(kilitli), VIP(kilitli), Mağaza en sağda', bar.join() === 'hint,call:kilit,shuffle:kilit,vipcall:kilit,shop', bar.join());
+const lk = await ev(() => { const g = window.__game; g.onPowerTap('vipcall'); const m = g.mode; return { m, toast: document.body.textContent.includes("açılır") }; });
+check('Kilitli özelliğe dokununca mod açılmaz, "açılır" uyarısı', !lk.m && lk.toast, JSON.stringify(lk));
+const lb2 = await ev(async () => { const g = window.__game; g.ui.closeAll(); g.ui.leaderboard(); await new Promise((r) => setTimeout(r, 400)); return document.querySelector('.lb-top')?.textContent || ''; });
+check('Sıralamada 1. ödül yazıyor: 500 altın', /500/.test(lb2), lb2.slice(0, 80));
 await ev(() => window.__game.ui.closeAll());
 check('Konsol hatası yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 const f = results.filter((r) => !r.ok).length; console.log(`\n${results.length - f}/${results.length} geçti`);

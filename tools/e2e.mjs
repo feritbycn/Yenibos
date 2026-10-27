@@ -59,10 +59,14 @@ check('Seviye 2 açıldı + jeton ödülü', s.level === 2 && s.coins > coins1, 
 await pg.click('[data-act=next]'); await pg.waitForTimeout(600); await ff(0.5);
 s = await state(); check('Seviye 2 başladı, EĞİTİM YOK (eğitim yalnızca 1. seviyede)', s.tut === null && s.phase === 'play', JSON.stringify(s));
 await pg.waitForTimeout(1600);
-s = await state(); check('VIP tanıtımı ilk VIP seviyesinde bir kez açılıyor', s.modals === 1 && await ev(() => window.__game.save.data.tutorial.vip === true), JSON.stringify(s)); await shot('15_l2_vip_preview');
+s = await state(); check('Seviye 2: VIP henüz kilitli, tanıtım açılmıyor', s.modals === 0 && await ev(() => !window.__game.isUnlocked('vipcall')), JSON.stringify(s));
+await ev(() => { const t = window.__game.save.data.tutorial; t.l1 = t.l2 = true; window.__game.startLevel(3); }); await pg.waitForTimeout(1800);
+s = await state(); check('Seviye 3: Çağır açılır ve bir kez tanıtılır', s.modals === 1 && await ev(() => window.__game.save.data.tutorial.intro.call === true), JSON.stringify(s)); await pg.click('[data-act=ok]'); await ff(0.4);
+await ev(() => window.__game.startLevel(6)); await pg.waitForTimeout(1800);
+s = await state(); check('Seviye 6: VIP açılır ve bir kez tanıtılır', s.modals === 1 && await ev(() => window.__game.save.data.tutorial.vip === true), JSON.stringify(s)); await shot('15_l6_vip_preview');
 await pg.click('[data-act=ok]'); await ff(0.4);
 await ev(() => window.__game.restart()); await pg.waitForTimeout(1800);
-s = await state(); check('VIP tanıtımı ikinci kez açılmıyor (tek gösterim)', s.modals === 0 && s.tut === null, JSON.stringify(s));
+s = await state(); check('Tanıtım ikinci kez açılmıyor (tek gösterim)', s.modals === 0 && s.tut === null, JSON.stringify(s));
 // peş peşe gönderme: iki otobüs beklemeden art arda
 const sol = await ev(() => window.__game.lvl.stages[0].solution.slice(0, 3));
 const two = await ev((sol) => { const g = window.__game; g.handleTap(sol[0]); g.handleTap(sol[1]); return [g.state.buses[sol[0]].st, g.state.buses[sol[1]].st]; }, sol);

@@ -293,6 +293,7 @@ export class GameScene {
   }
 
   refreshSlots(state, tempSlots = []) {
+    this.slotMeshes[0].material.map = this.vipLocked ? this.slotTex.locked : this.slotTex.vip; this.slotMeshes[0].material.needsUpdate = true;
     for (let i = 0; i < SLOTS_TOTAL; i++) {
       const m = this.slotMeshes[i + 1];
       m.material.map = state.slotOpen[i] ? (tempSlots.includes(i) ? this.slotTex.temp : this.slotTex.open) : this.slotTex.locked;
