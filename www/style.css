@@ -245,3 +245,19 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 @keyframes moodpop{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
 .praise{position:fixed;left:50%;top:34%;transform:translateX(-50%);z-index:60;pointer-events:none;font:900 40px/1 inherit;color:#fff;-webkit-text-stroke:2px #e8730c;paint-order:stroke fill;text-shadow:0 4px 0 #b2480a,0 8px 14px rgba(0,0,0,.35);animation:praiseup 1.2s ease-out forwards;white-space:nowrap}
 @keyframes praiseup{0%{transform:translate(-50%,10px) scale(.4);opacity:0}18%{transform:translate(-50%,0) scale(1.15);opacity:1}30%{transform:translate(-50%,0) scale(1)}100%{transform:translate(-50%,-46px) scale(1);opacity:0}}
+/* Mod çubuğu (VIP / Çağır seçimi): alta sabit, buzlu cam kart */
+.mode-banner{top:auto;bottom:calc(var(--sab,0px) + 104px);left:50%;transform:translateX(-50%);width:min(92%,420px);max-width:none;display:flex;align-items:center;gap:12px;text-align:left;padding:10px 10px 10px 10px;border:1px solid rgba(255,255,255,.7);border-radius:22px;background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);color:#2a2350;box-shadow:0 14px 34px rgba(20,16,60,.35),0 2px 0 rgba(255,255,255,.8) inset;animation:mbup .35s cubic-bezier(.2,1.2,.4,1)}
+.mode-banner[hidden]{display:none}
+.mode-banner .mb-ico{flex:none;width:52px;height:52px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#8b5cff,#5a30e8);box-shadow:0 6px 14px rgba(90,48,232,.45);animation:mbpulse 1.6s ease-in-out infinite}
+.mode-banner.m-vip .mb-ico{background:linear-gradient(145deg,#ffd45a,#f09a12);color:#6a4300;box-shadow:0 6px 14px rgba(240,154,18,.5)}
+.mode-banner.m-call .mb-ico{background:linear-gradient(145deg,#ff7a9e,#ee3f7a);box-shadow:0 6px 14px rgba(238,63,122,.45)}
+.mode-banner .mb-tx{flex:1;min-width:0;line-height:1.15}
+.mode-banner .mb-tx small{display:block;font:900 11px/1 inherit;letter-spacing:1.6px;color:#8a6ff0;margin-bottom:3px}
+.mode-banner.m-vip .mb-tx small{color:#d98a00}
+.mode-banner .mb-tx b{display:block;font:900 19px/1.15 inherit;color:#2a2350}
+.mode-banner .mb-tx b em{font-style:normal;color:#e8730c}
+.mode-banner .mb-tx span{display:block;font:700 11.5px/1.25 inherit;color:#6b6890;margin-top:3px}
+.mode-banner .mb-x{flex:none;width:36px;height:36px;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(42,35,80,.08);color:#4a4570}
+.mode-banner .mb-x:active{transform:scale(.9)}
+@keyframes mbup{0%{transform:translate(-50%,40px);opacity:0}100%{transform:translate(-50%,0);opacity:1}}
+@keyframes mbpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}

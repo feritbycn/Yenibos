@@ -176,7 +176,14 @@ export class Game {
     this.mode = m; const b = $('#modeBanner');
     this.scene.clearGlows();
     if (!m) { b.hidden = true; return; }
-    b.hidden = false; b.innerHTML = `<span>${text}</span><button data-cancel>İptal</button>`;
+    const M = {
+      vip: ['vip', 'VIP NOKTASI', 'Bir <em>otobüs</em> seç', 'Seçtiğin otobüs VIP alanına gelir, rengindeki yolcuları kuyruğun her yerinden alır'],
+      call: ['call', 'ÇAĞIR', 'Çağıracağın <em>otobüsü</em> seç', 'Yolu kapalı olsa bile park alanına gelir'],
+      recall: ['recall', 'GERİ ÇAĞIR', 'Park eden <em>otobüse</em> dokun', ''],
+      convert: ['convert', 'DEĞİŞTİR', 'Bir <em>otobüs</em> seç', ''],
+    }[m] || ['hint', '', text, ''];
+    b.hidden = false; b.className = 'mode-banner m-' + m; void b.offsetWidth;
+    b.innerHTML = `<div class="mb-ico">${ico(M[0], 30)}</div><div class="mb-tx">${M[1] ? `<small>${M[1]}</small>` : ''}<b>${M[2]}</b>${M[3] ? `<span>${M[3]}</span>` : ''}</div><button class="mb-x" data-cancel aria-label="İptal">${ico('x', 18)}</button>`;
     if (m === 'recall') for (const bus of this.state.buses) if (bus.st === 'parked' && bus.arrived) this.scene.setGlow(bus.id, 0x7dffc0);
     if (m === 'convert') for (const bus of this.state.buses) if (bus.st === 'board' && !bus.vip) this.scene.setGlow(bus.id, 0xc9a7ff);
     if (m === 'vip') for (const bus of this.state.buses) if (bus.st === 'board') this.scene.setGlow(bus.id, 0xffd45a);
