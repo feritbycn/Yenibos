@@ -111,10 +111,10 @@ if (parkedBefore > 0) {
   await ev(() => { const g = window.__game; const i = g.state.slots.findIndex((x) => x !== null); g.handleSlotTap(i); }); await ff(1.2);
   const p5 = await S(); check('Geri çağır: park eden otobüs başlangıç yerine döndü', mode === 'recall' && p5.parked === parkedBefore - 1 && p5.pu.recall === p4.pu.recall - 1, JSON.stringify({ mode, parked: p5.parked, recall: p5.pu.recall }));
 } else check('Geri çağır (park eden otobüs yoktu, atlandı)', true, 'otobüs dolup kalkmıştı');
-// VIP çağır (coin)
-await ev(() => { const g = window.__game; g.save.data.temp.vipCalls = 0; });
-await ev(() => window.__game.callVip('coin')); await ff(1.5); const p6 = await S();
-check('VIP çağır: VIP alanı doldu', p6.vip !== null, JSON.stringify(p6.vip)); await shot('vip_called');
+// VIP hakkı: otobüs seç → VIP alanına gelir
+const vipUse = await ev(async () => { const g = window.__game; g.save.data.powerups.vip = 2; g.state.vipSlot = null; const before = g.save.data.powerups.vip; g.onPower('vipcall'); const mode = g.mode; const b = g.state.buses.find((x) => x.st === 'board'); g.handleTap(b.id); return { mode, before, after: g.save.data.powerups.vip, id: b.id }; });
+await ff(2.5); const p6 = await S();
+check('VIP hakkı: seçilen otobüs VIP alanına geldi, hak 1 azaldı', vipUse.mode === 'vip' && vipUse.after === vipUse.before - 1 && p6.vip !== null, JSON.stringify({ vipUse, vip: p6.vip })); await shot('vip_called');
 // dönüştür
 await ev(() => { const g = window.__game; g.save.data.temp.conv = 0; });
 const convRes = await ev(async () => { const g = window.__game; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip); const colors = [...new Set(g.state.queue.slice(g.state.qi))].filter((c) => c !== b.color); const before = { color: b.color, seats: b.seats, id: b.id }; let ok = false; for (const c of colors) { ok = await g.applyConvert(b.id, { type: 'color', v: c }, 'coin'); if (ok) { return { ok, before, after: { color: g.state.buses[b.id].color, seats: g.state.buses[b.id].seats }, c }; } } return { ok, before, colors }; });

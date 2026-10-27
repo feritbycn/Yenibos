@@ -25,7 +25,7 @@ export function solve(state, { useVip = false, maxNodes = 400000 } = {}) {
   }
   const open = s.slotOpen.slice();
   const slotsInit = s.slots.map((id) => (id === null ? null : { c: s.buses[id].color, b: s.buses[id].boarded, s: s.buses[id].seats }));
-  const vipInit = s.vipSlot === null ? null : { c: 99, b: s.buses[s.vipSlot].boarded, s: s.buses[s.vipSlot].seats };
+  const vipInit = s.vipSlot === null ? null : { c: s.buses[s.vipSlot].color, b: s.buses[s.vipSlot].boarded, s: s.buses[s.vipSlot].seats };
   const W = s.win ?? QUEUE_WINDOW;
   const failed = new Set();
   let nodes = 0, aborted = false;
@@ -34,7 +34,7 @@ export function solve(state, { useVip = false, maxNodes = 400000 } = {}) {
   function key(mask, q, slots, vip) {
     let k = mask + '|' + q.join('') + '|';
     for (let i = 0; i < SLOTS_TOTAL; i++) k += slots[i] ? slots[i].c * 20 + slots[i].b + ',' : '-,';
-    if (vip) k += 'v' + vip.b;
+    if (vip) k += 'v' + vip.c + ':' + vip.b;
     return k;
   }
   /** Motorla birebir aynı kural: kapıdaki ilk W yolcudan (önce en öndeki, sonra en düşük park yeri) biri biner; hiçbiri binemezse VIP en öndekini alır. */
@@ -56,7 +56,10 @@ export function solve(state, { useVip = false, maxNodes = 400000 } = {}) {
         }
       }
       if (done) continue;
-      if (vip && vip.b < vip.s) { vip.b++; q.shift(); if (vip.b >= vip.s) vip = null; continue; }
+      if (vip && vip.b < vip.s) {                       // VIP alanı: kendi rengindeki yolcuyu kuyruğun her yerinden alır
+        const at = q.indexOf(vip.c);
+        if (at >= 0) { vip.b++; q.splice(at, 1); if (vip.b >= vip.s) vip = null; continue; }
+      }
       return { q, vip };
     }
   }

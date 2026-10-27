@@ -31,12 +31,19 @@ export const ADS = {
 };
 
 export const PRICES = {
-  undo: 60, hint: 40, recall: 80, call: 120, moves: 70, time: 70, extraSlot: 150,
+  undo: 60, hint: 40, recall: 80, call: 120, moves: 70, time: 70, extraSlot: 150, vip: 100, shuffle: 90,
   permSlot: [400, 800, 1500],
   convert: 100, seat: 60,
 };
 export const CONV_LIMIT = 3;   // seviye başına otobüs değiştirme/koltuk ekleme hakkı
-export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'moves', 'time'];
+export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'moves', 'time', 'vip', 'shuffle'];
+/** Jetonla alınan paketler (gerçek para değil). */
+export const PACKS = [
+  { id: 'starter', name: 'Başlangıç Paketi', price: 420, items: { undo: 3, hint: 3, shuffle: 2, vip: 2 }, tag: 'Popüler' },
+  { id: 'vip5', name: 'VIP Paketi', price: 400, items: { vip: 5 }, tag: '%20 indirim' },
+  { id: 'shuffle5', name: 'Karıştır Paketi', price: 360, items: { shuffle: 5 }, tag: '%20 indirim' },
+  { id: 'master', name: 'Usta Paketi', price: 1100, items: { undo: 5, hint: 5, recall: 3, call: 3, shuffle: 4, vip: 5 }, tag: 'En avantajlı' },
+];
 
 // Gerçek para ile jeton paketleri. mode 'off' iken satın alma çalışmaz ve jeton verilmez (README).
 export const IAP = {
@@ -52,8 +59,8 @@ export const IAP = {
 /** Ön sıra penceresi: kuyruğun ilk N yolcusu (kapıdakiler) uygun renkte park etmiş otobüse aynı anda binebilir. */
 export const QUEUE_WINDOW = 3;
 
-/** VIP otobüs çağırma bedeli (jeton). Pahalı tutuldu; reklamla ücretsiz çağrılabilir. */
-export const VIP_CALL_PRICE = 800;
+/** VIP hakkı bedeli (jeton). İlk hak bedava; sonrası reklamla ya da bu bedelle. */
+export const VIP_CALL_PRICE = 100;
 /** Oyun bitince (kayıp ekranı) reklamla yapılabilecek en fazla geri alma/devam hakkı (seviye başına). */
 export const MAX_REVIVES = 3;
 

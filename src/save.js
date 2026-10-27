@@ -7,7 +7,7 @@ export const defaults = () => ({
   owned: { style: ['city'], rim: ['steel'], palette: ['vivid'], trail: ['dust'], vipSkin: ['gold'] },
   equipped: { style: 'city', rim: 'steel', palette: 'vivid', trail: 'dust', vipSkin: 'gold' },
   perm: { slots: 0 },
-  powerups: { undo: 2, hint: 2, recall: 1, call: 1, extraSlot: 1, moves: 1, time: 1 },
+  powerups: { undo: 2, hint: 2, recall: 1, call: 1, extraSlot: 1, moves: 1, time: 1, vip: 1, shuffle: 1 },
   temp: { level: 0, slots: [], conv: 0, vipCalls: 0 },
   tutorial: { l1: false, l2: false, enabled: true },
   settings: { sound: true, vibe: true, quality: 'high' },

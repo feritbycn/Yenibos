@@ -1,10 +1,10 @@
 // Motor + seviye testleri (tarayıcısız). Çalıştır: npm test
 import esbuild from 'esbuild'; import os from 'node:os'; import path from 'node:path'; import fs from 'node:fs';
-const entry = `export * from './src/engine.js'; export * from './src/solver.js'; export * from './src/levels.js'; export * from './src/config.js'; export * from './src/clockmath.js'; export { Clock } from './src/time.js'; export { LocalBackend } from './src/backend.js'; export { sanitize, defaults } from './src/save.js';`;
+const entry = `export * from './src/engine.js'; export * from './src/solver.js'; export * from './src/levels.js'; export * from './src/config.js'; export * from './src/clockmath.js'; export { shuffleLayout, genStage } from './src/levelgen.js'; export { makeRng } from './src/rng.js'; export { Clock } from './src/time.js'; export { LocalBackend } from './src/backend.js'; export { sanitize, defaults } from './src/save.js';`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bpd-')); const out = path.join(tmp, 'bundle.mjs');
 await esbuild.build({ stdin: { contents: entry, resolveDir: process.cwd(), loader: 'js' }, bundle: true, platform: 'node', format: 'esm', outfile: out, logLevel: 'silent', loader: { '.json': 'json' } });
 const M = await import(out);
-const { capOf, seatsOf, canAddSeat, canGrow, addSeat, starsForMoves, levelScore, dayKeyOf, weekKeyOf, weekdayOf, dayDiffKeys, Clock, LocalBackend, sanitize, defaults, BACKEND, VIP_CALL_PRICE, MAX_REVIVES, levelParams, makeState, tap, settle, evaluate, solve, replay, getLevel, PREBUILT_COUNT, blockers, recall, convertColor, spawnVip, callMatching, unlockSlot, SLOTS_BASE, SLOTS_TOTAL, boardStep, depart } = M;
+const { capOf, seatsOf, canAddSeat, canGrow, addSeat, starsForMoves, levelScore, dayKeyOf, weekKeyOf, weekdayOf, dayDiffKeys, Clock, LocalBackend, sanitize, defaults, BACKEND, VIP_CALL_PRICE, MAX_REVIVES, levelParams, makeState, tap, settle, evaluate, solve, replay, getLevel, PREBUILT_COUNT, blockers, recall, convertColor, vipSend, shuffleLayout, makeRng, PACKS, callMatching, unlockSlot, SLOTS_BASE, SLOTS_TOTAL, boardStep, depart } = M;
 let pass = 0, fail = 0;
 const t = (name, ok, extra = '') => { ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : '')); };
 
@@ -59,7 +59,7 @@ t('Seviye üretimi deterministik', JSON.stringify(getLevel(55)) === JSON.stringi
   t('Yıldız: küçük seviyede (5 otobüs) 2 fazla hamle 2 yıldız, 4 fazla 1 yıldız', e.stars === 2 && f.stars === 1 && starsForMoves(6, 5).stars === 3 && starsForMoves(10, 5).stars === 1, JSON.stringify([e, f]));
   t('Puan: 3 yıldız hatasız > 2 yıldız > 1 yıldız', levelScore({ stars: 3, extra: 0 }) > levelScore({ stars: 2, extra: 3 }) && levelScore({ stars: 2, extra: 3 }) > levelScore({ stars: 1, extra: 9 }));
 }
-t('VIP çağırma bedeli 800 jeton, en çok 3 geri alma', VIP_CALL_PRICE === 800 && MAX_REVIVES === 3);
+t('VIP hakkı bedeli 100 jeton, en çok 3 geri alma', VIP_CALL_PRICE === 100 && MAX_REVIVES === 3);
 
 // ---- Gün/hafta hesapları ve saat güvenliği
 {
@@ -129,16 +129,35 @@ const mk = (buses, queue, o = {}) => makeState({ w: 5, h: 5, buses, queue }, o);
   t('Yer kalmayınca kayıp ilan edilir', evaluate(s).status === 'lost');
   unlockSlot(s); const r2 = tap(s, 4); t('Ek park yeri açılınca otobüs çıkabilir', r2.ok);
 }
-{ // VIP joker
-  const s = mk([{ v: 1, l: 3, d: 'R', x: 2, y: 0 }], [0, 1, 2, 3]);
-  tap(s, 0); const ev = settle(s);
-  t('VIP otobüs her renkten yolcu alır (joker)', ev.length === 4 && ev.map((e) => e.color).join() === '0,1,2,3');
-  t('VIP 8 koltuk, 3 uzunluk', s.buses[0].seats === 8);
+{ // VIP hakkı: seçilen otobüs VIP alanına gider, kendi rengini kuyruğun HER yerinden alır (önce öndekiler)
+  const q = [0, 1, 2, 2, 1, 0, 2, 2, 0, 0, 1, 2, 2];                       // pencere 3: mavi otobüs ilk 3'te mavi görmez ama kuyruğun derininde var
+  const s = mk([{ c: 2, l: 3, d: 'R', x: 0, y: 0 }, { c: 0, l: 1, s: 4, d: 'R', x: 2, y: 2 }, { c: 1, l: 2, d: 'R', x: 0, y: 3 }], q);
+  const r = vipSend(s, 0);
+  t('VIP hakkı: yolu kapalı olsa da otobüs VIP alanına gönderilir', r.ok && s.vipSlot === 0 && s.buses[0].st === 'parked' && s.buses[0].slot === 'V');
+  const ev = settle(s);
+  t('VIP otobüs sadece kendi rengini alır ve 6 koltuğu kuyruğun her yerinden doldurur', ev.length === 6 && ev.every((e) => e.color === 2) && s.buses[0].boarded === 6 && s.vipSlot === null);
+  t('VIP boşalınca kalkar; kalan kuyruğun sırası korunur', s.queue.slice(s.qi).join('') === '0110001');
+  const r2 = vipSend(s, 1); const r3 = vipSend(s, 2); t('VIP alanı doluyken ikinci VIP gönderilemez', r2.ok && !r3.ok && r3.reason === 'vipfull');
 }
-{ // VIP alanı dolu
-  const s = mk([{ v: 1, l: 3, d: 'R', x: 2, y: 0 }, { v: 1, l: 3, d: 'R', x: 2, y: 2 }], [0]);
-  tap(s, 0); const r = tap(s, 1); t('VIP alanı doluyken ikinci VIP çıkamaz', !r.ok && r.reason === 'vipfull');
+{ // VIP alanındaki otobüs rengi yoksa yolcu almaz (joker yok)
+  const s = mk([{ c: 3, l: 2, d: 'R', x: 0, y: 0 }], [0, 1, 2]);
+  vipSend(s, 0); const ev = settle(s); t('VIP alanındaki otobüs başka renkten yolcu almaz', ev.length === 0 && s.buses[0].boarded === 0);
 }
+{ // Karıştır: yerleşim sığar, çakışmaz, çözülebilirlik kontrolü
+  const L = getLevel(12); const st = L.stages[0]; const s0 = makeState(st, { slotsOpen: L.slotsBase });
+  const rng = makeRng(5); let okAny = false, overlap = false;
+  for (let k = 0; k < 6; k++) {
+    const lay = shuffleLayout(s0.buses.map((b) => ({ id: b.id, len: b.len })), s0.w, s0.h, rng);
+    if (!lay) continue; okAny = true;
+    const occ = new Set(); const tst = JSON.parse(JSON.stringify(s0));
+    for (const p of lay) { const b = tst.buses[p.id]; b.x = b.x0 = p.x; b.y = b.y0 = p.y; b.dir = p.d; }
+    for (const b of tst.buses) for (const [x, y] of M.cellsOf(b)) { const kk = x + ',' + y; if (occ.has(kk) || x < 0 || y < 0 || x >= tst.w || y >= tst.h) overlap = true; occ.add(kk); }
+  }
+  t('Karıştır: otobüsler çakışmadan ve tahta içinde yeniden dizilir', okAny && !overlap);
+}
+t('Paketler: her paketin fiyatı tek tek alım toplamından ucuz', PACKS.every((pk) => pk.price < Object.entries(pk.items).reduce((a, [k, n]) => a + n * ({ undo: 60, hint: 40, recall: 80, call: 120, vip: 100, shuffle: 90 }[k] || 0), 0)));
+t('Çözümle bitince hiçbir otobüs boş/yarım bekleyemez: tüm otobüsler dolup gider (40 seviye)', (() => { for (let n = 1; n <= PREBUILT_COUNT; n++) { const L = getLevel(n); for (const st of L.stages) { const r = replay(st, { slotsOpen: st.slots ?? L.slotsBase }, st.solution); if (!r.ok || !r.state.buses.every((b) => b.st === 'gone' && b.boarded === b.seats)) return false; } } return true; })());
+t('Hiçbir hazır seviyede VIP (joker) otobüs yok', (() => { for (let n = 1; n <= PREBUILT_COUNT; n++) for (const st of getLevel(n).stages) if (st.buses.some((b) => b.v)) return false; return true; })());
 { // geri çağır
   const s = mk([{ c: 0, l: 2, d: 'R', x: 2, y: 0 }], [1]); tap(s, 0); settle(s);
   const r = recall(s, 0); t('Geri çağır: otobüs başlangıç hücrelerine döner', r.ok && s.buses[0].st === 'board' && s.buses[0].x === 2 && s.slots.every((x) => x === null));

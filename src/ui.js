@@ -3,7 +3,7 @@ import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
 const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
-import { PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST } from './config.js';
+import { PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
 import { Clock } from './time.js';
 import { Preview } from './preview.js';
 
@@ -138,8 +138,10 @@ export class UI {
       } else if (tab === 'coins') {
         const ok = G.iap.available();
         body = `<p>${ok ? 'Jeton paketlerini Google Play ile satın alabilirsin.' : '<b>Gerçek parayla satın alma bu sürümde kapalı.</b> Google Play Faturalandırma kurulumu yapılmadan jeton satılmaz (README).'}</p><div class="list">${IAP.packs.map((pk) => `<div class="item"><div>${ico('coin', 34)}</div><div class="grow"><b>${pk.coins.toLocaleString('tr-TR')} jeton</b><small style="display:block;color:#58649a">${pk.label}</small></div><button class="btn gold" data-act="iap" data-id="${pk.id}" ${ok ? '' : 'disabled'}>Satın al</button></div>`).join('')}</div>`;
+      } else if (tab === 'packs') {
+        body = `<p>Jetonla alınan paketler: tek tek almaktan daha ucuz. (Gerçek para ödemesi yok.)</p><div class="list">${PACKS.map((pk) => `<div class="item"><div style="color:#7a4dff">${ico('gift', 34)}</div><div class="t"><b>${pk.name} <span style="color:#2fa84f;font-size:12px">${pk.tag}</span></b><small>${Object.entries(pk.items).map(([k, n]) => `${n}× ${POWER_INFO[k].name}`).join(' · ')}</small></div><button class="btn gold" data-act="buypack" data-id="${pk.id}">${ico('coin', 16)} ${pk.price}</button></div>`).join('')}</div>`;
       } else if (tab === 'power') {
-        body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', extraSlot: 'plus', moves: 'play', time: 'clock' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
+        body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', extraSlot: 'plus', moves: 'play', time: 'clock', vip: 'vip', shuffle: 'shuffle' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
       } else {
         const n = d.perm.slots;
         body = `<p>Kalıcı park alanları tüm seviyelerde açık kalır. Reklamla açılan alanlar ise yalnızca o seviyede geçerlidir.</p><div class="list">${PRICES.permSlot.map((pr, i) => `<div class="item"><div style="color:${i < n ? '#2fd06a' : '#7a4dff'}">${ico(i < n ? 'check' : 'plus', 34)}</div><div class="t"><b>Kalıcı Park Yeri ${i + 1}/3</b><small>${i < n ? 'Açıldı' : i === n ? 'Sıradaki açılım' : 'Önceki alanı aç'}</small></div>${i < n ? '' : `<button class="btn gold" data-act="permslot" ${i === n ? '' : 'disabled'}>${ico('coin', 16)} ${pr}</button>`}</div>`).join('')}</div>`;
@@ -152,6 +154,7 @@ export class UI {
       buy: (ds) => { if (G.buyItem(tab, ds.id)) render(); },
       equip: (ds) => { G.equip(tab, ds.id); render(); },
       buypower: (ds) => { if (G.buyPower(ds.id)) render(); },
+      buypack: (ds) => { if (G.buyPack(ds.id)) render(); },
       adpower: async (ds) => { if (await G.adPower(ds.id)) render(); },
       permslot: () => { if (G.buyPermSlot()) render(); },
       iap: async (ds) => { if (await G.buyCoinPack(ds.id)) render(); },
@@ -202,7 +205,7 @@ export class UI {
       const d = G.save.data;
       c.setBody(`
         <div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div>
-        <p style="margin-top:10px"><b>VIP otobüs</b> altın detaylı özel bir araçtır: <b>her renkten yolcu alır</b>, özel VIP alanına park eder ve 8 yolcu taşır. Bazı seviyelerde sahnede bulunur; ayrıca oyun içinde “VIP Çağır” ile reklam izleyerek ya da <b>${VIP_CALL_PRICE} jetonla</b> çağırabilirsin. Temel seviyeler VIP olmadan da tamamlanabilir.</p>
+        <p style="margin-top:10px"><b>VIP hakkı:</b> tahtadaki istediğin otobüse dokun; yolu kapalı olsa bile (kanatlanıp uçarak) <b>VIP alanına</b> gelir ve <b>kendi rengindeki yolcuları kuyruğun her yerinden</b> alır: önce öndekileri, dolmazsa arkadakileri. İlk hak hediye; sonrası reklamla ya da <b>${VIP_CALL_PRICE} jetonla</b>. Şu an <b>${d.powerups.vip}</b> hakkın var. <button class="btn gold" data-act="buyvip" style="margin-top:8px">${ico('vip', 18)} VIP hakkı al</button></p>
         <div class="opts">${Object.entries(VIP_SKINS).map(([k, s]) => { const own = d.owned.vipSkin.includes(k); return `<button class="opt ${d.equipped.vipSkin === k ? 'sel' : ''}" data-act="skin" data-id="${k}"><div class="dotc" style="background:${hex6(s.body)}"></div>${s.label}<small style="color:#58649a">${own ? (d.equipped.vipSkin === k ? 'Kullanımda' : 'Kullan') : SHOP.vipSkin.find((x) => x.id === k).price + ' 🪙'}</small></button>`; }).join('')}</div>
         <div class="item"><div style="color:#7a4dff">${ico('plus', 30)}</div><div class="t"><b>Kalıcı Premium park yerleri</b><small>${d.perm.slots}/3 açık · tüm seviyelerde geçerli</small></div>${d.perm.slots < 3 ? `<button class="btn gold" data-act="perm">${ico('coin', 16)} ${PRICES.permSlot[d.perm.slots]}</button>` : `<span style="color:#2fd06a">${ico('check', 28)}</span>`}</div>`);
       const pv = c.preview || (c.preview = new Preview(c.q('.preview')));
@@ -213,13 +216,14 @@ export class UI {
     this.onAct(c, {
       skin: (ds) => { const d = G.save.data; if (d.owned.vipSkin.includes(ds.id)) G.equip('vipSkin', ds.id); else if (!G.buyItem('vipSkin', ds.id)) return; c.preview?.dispose(); c.preview = null; render(); },
       perm: () => { if (G.buyPermSlot()) { c.preview?.dispose(); c.preview = null; render(); } },
+      buyvip: () => { c.close(); this.powerBuy('vip'); },
     });
   }
 
   // eğitim: VIP önizleme (3D)
   vipPreview(onDone) {
     const G = this.G; const d = G.save.data;
-    const c = this.modal({ title: 'VIP Otobüs', head: 'gold', closable: false, body: `<div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div><p style="margin-top:10px;text-align:center"><b>VIP otobüs her renkten yolcu alır</b> ve özel VIP alanına park eder. Sahnedeki altın otobüsü deneyebilirsin!</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>`, onClose: () => onDone?.() });
+    const c = this.modal({ title: 'VIP Hakkı', head: 'gold', closable: false, body: `<div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div><p style="margin-top:10px;text-align:center"><b>VIP hakkı</b>: istediğin otobüsü seç, VIP alanına gelsin. Kendi rengindeki yolcuları <b>kuyruğun her yerinden</b> alır (önce öndekiler). Sana <b>1 VIP hakkı</b> hediye!</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>`, onClose: () => onDone?.() });
     const pv = new Preview(c.q('.preview')); c.preview = pv; pv.show({ vip: true, vipSkin: d.equipped.vipSkin, rim: d.equipped.rim, len: 3 });
     this.onAct(c, { ok: () => c.close() });
   }
@@ -338,7 +342,7 @@ export class UI {
     });
   }
 
-  fail({ reason, canSlotAd, canUndo, revivesLeft, adOk }) {
+  fail({ reason, canSlotAd, canUndo, revivesLeft, adOk, canVip }) {
     const G = this.G;
     const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!', time: 'Süre doldu!' }[reason] || 'Seviye başarısız.';
     const opts = [];
@@ -351,6 +355,7 @@ export class UI {
         if (canSlotAd) opts.push(`<button class="btn gold" data-act="slotAd">${ico('ad', 22)} Reklam izle: ek park yeri aç<small>(bu seviye)</small></button>`);
       }
     }
+    if (canVip && reason !== 'moves' && reason !== 'time') opts.unshift(`<button class="btn purple" data-act="vip">${ico('vip', 22)} VIP ile kurtar <small>(${G.save.data.powerups.vip} hak${G.save.data.powerups.vip ? '' : ' · reklam/jeton'})</small></button>`);
     const pips = Array.from({ length: MAX_REVIVES }, (_, i) => `<i class="${i < MAX_REVIVES - revivesLeft ? 'used' : ''}"></i>`).join('');
     const note = revivesLeft > 0
       ? `<div class="revive-pips">${pips}</div><p style="text-align:center;color:#58649a;font-size:13px">Bu seviyede kalan geri alma/devam hakkı: <b>${revivesLeft}/${MAX_REVIVES}</b>. Reklam izlemek isteğe bağlıdır.</p>`
@@ -358,6 +363,7 @@ export class UI {
     const c = this.modal({ title: 'Olmadı!', head: 'red', closable: false, body: `<p style="text-align:center;font-size:17px">${msg}</p>${note}`, foot: `${opts.join('')}<div class="row"><button class="btn green" data-act="restart">${ico('restart', 20)} Yeniden</button><button class="btn gray" data-act="menu">${ico('home', 20)} Menü</button></div>` });
     this.onAct(c, {
       restart: () => { c.close(); G.restart(); }, menu: () => { c.close(); G.goMenu(); },
+      vip: () => { c.close(); G.vipRescue(); },
       slotAd: async () => { if (await G.unlockSlot('ad')) { c.close(); G.reviveAfter(); } },
       undo: async () => { if (await G.reviveUndo()) { c.close(); G.reviveAfter(); } },
       moveAd: async () => { if (await G.addMoves('ad')) { c.close(); G.reviveAfter(); } },
@@ -386,10 +392,10 @@ export class UI {
   powerBuy(kind) {
     const G = this.G; const p = POWER_INFO[kind];
     const c = this.modal({
-      title: p.name, head: 'blue', body: `<p>${p.desc}</p><p style="color:#c98a00;font-weight:900">Elinde kalmadı.</p>`,
-      foot: `<button class="btn gold" data-act="buy">${ico('coin', 22)} Satın al · ${p.price} jeton</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="ad">${ico('ad', 22)} Reklam izle: +1 hak</button>` : ''}`,
+      title: p.name, head: 'blue', body: `<p>${p.desc}</p><p style="color:#c98a00;font-weight:900">Elinde kalmadı.</p>${kind === 'vip' ? `<p style="font-size:13px;color:#58649a">Satın alınca VIP hakkı envanterine eklenir; sonra VIP düğmesine dokunup otobüsü seçersin.</p>` : ''}`,
+      foot: `${G.save.data.coins >= p.price ? `<button class="btn gold" data-act="buy">${ico('coin', 22)} Satın al · ${p.price} jeton</button>` : `<button class="btn orange" data-act="needcoins">${ico('coin', 22)} Jeton yetmiyor · Jeton al</button>`}${ADS.mode !== 'off' ? `<button class="btn green" data-act="ad">${ico('ad', 22)} Reklam izle: +1 hak</button>` : ''}`,
     });
-    this.onAct(c, { buy: () => { if (G.buyPower(kind)) c.close(); }, ad: async () => { if (await G.adPower(kind)) c.close(); } });
+    this.onAct(c, { buy: () => { if (G.buyPower(kind)) c.close(); }, needcoins: () => { c.close(); this.shop('coins'); }, ad: async () => { if (await G.adPower(kind)) c.close(); } });
   }
 
   convertDialog(busInfo) {

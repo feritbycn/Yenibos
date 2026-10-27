@@ -64,6 +64,37 @@ function genBuses(rng, p) {
   return { normal, vips };
 }
 
+/**
+ * Karıştır: verilen otobüsleri (uzunlukları sabit) tahtaya yeniden yerleştirir. Yerleştirme çıkış sırasının tersine yapılır,
+ * böylece yapı gereği bir "yolu açık sırası" vardır. Sığmazsa null.
+ * @param {{id:number,len:number}[]} items
+ */
+export function shuffleLayout(items, w, h, rng) {
+  const occ = new Set(); const out = []; const keyOf = (x, y) => x + ',' + y;
+  const order = rng.shuffle(items.slice());
+  const placed = [];
+  for (const it of order) {
+    let best = null, bestScore = -1e9;
+    for (let t = 0; t < 140; t++) {
+      const d = rng.pick(['U', 'D', 'L', 'R']); const horiz = DIRS[d].horiz;
+      const x = rng.int(w - (horiz ? it.len - 1 : 0)); const y = rng.int(h - (horiz ? 0 : it.len - 1));
+      const cand = { l: it.len, d, x, y };
+      const cs = cells(cand);
+      if (cs.some(([cx, cy]) => occ.has(keyOf(cx, cy)))) continue;
+      if (path(cand, w, h).some(([cx, cy]) => occ.has(keyOf(cx, cy)))) continue;
+      let blocks = 0; const mine = new Set(cs.map(([cx, cy]) => keyOf(cx, cy)));
+      for (const o of placed) for (const [px, py] of path(o, w, h)) if (mine.has(keyOf(px, py))) { blocks++; break; }
+      let adj = 0; for (const [cx, cy] of cs) for (const dd of Object.values(DIRS)) if (occ.has(keyOf(cx + dd.x, cy + dd.y))) adj++;
+      const score = blocks * 3 + adj * 0.6 + rng() * 2;
+      if (score > bestScore) { bestScore = score; best = cand; }
+    }
+    if (!best) return null;
+    placed.push(best); for (const [cx, cy] of cells(best)) occ.add(keyOf(cx, cy));
+    out.push({ id: it.id, x: best.x, y: best.y, d: best.d });
+  }
+  return out;
+}
+
 function buildQueue(rng, normal, p) {
   const n = normal.length;
   // renk atama
@@ -145,6 +176,7 @@ export function levelParams(n) {
     if (n % 5 === 0) { const second = { ...stages[0], count: stages[0].count - 4, vip: 0 }; stages.push(second); extra.timeSpare = 30; }
     if (n % 7 === 0) extra.moveSpare = 3;
   }
+  for (const st of stages) st.vip = 0;   // VIP artık oyuncunun hakkıdır (güç), seviyede altın otobüs yok
   if (n >= 6) for (const st of stages) st.mini = Math.min(0.3, 0.12 + n * 0.006);   // 6. seviyeden itibaren bazı otobüsler minibüs (3/5 koltuk)
   return { stages, extra };
 }

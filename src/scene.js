@@ -1,7 +1,7 @@
 // 3D sahne: ortam, kamera, otobüs/yolcu animasyonları, giriş (dokun/sürükle) ve sahne yönetmeni.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { buildBus, buildPassenger, buildLamp, buildTree, buildBush, buildBench, setBusPassengers, recolorBus, hexFor, PARK_SCALE, busLength, glowTexture } from './models.js';
+import { buildBus, buildPassenger, buildLamp, buildTree, buildBush, buildBench, setBusPassengers, recolorBus, hexFor, styleFor, PARK_SCALE, busLength, glowTexture } from './models.js';
 import * as E from './engine.js';
 import { FX } from './fx.js';
 import { SLOTS_TOTAL, VIP_COLOR, QUEUE_WINDOW } from './config.js';
@@ -376,7 +376,7 @@ export class GameScene {
 
   makeBusVis(b) {
     const hex = b.vip ? 0 : this.hexOf(b.color);
-    const g = buildBus({ len: b.len, hex, style: this.cos.style, vip: b.vip, rim: this.cos.rim, vipSkin: this.cos.vipSkin, seats: b.seats });
+    const g = buildBus({ len: b.len, hex, style: styleFor(this.cos.style, b.len, b.id), vip: b.vip, rim: this.cos.rim, vipSkin: this.cos.vipSkin, seats: b.seats });
     const vis = { id: b.id, g, parts: g.userData.parts, vcount: 0, vcolors: [], traveling: false, departing: false, trailT: 0, dragOff: 0, bounce: 0, dims: g.userData.dims };
     g.traverse((o) => { if (o.isMesh) o.castShadow = o.castShadow || false; });
     this.busGroup.add(g); this.busVis.set(b.id, vis);
@@ -387,6 +387,7 @@ export class GameScene {
       const k = b.slot === 'V' ? 0 : b.slot + 1;
       g.position.set(slotX(k), 0, SLOT_Z); g.rotation.y = 0; g.scale.setScalar(PARK_SCALE[b.len] || 0.75);
       if (vis.parts.arrow) vis.parts.arrow.visible = false;
+      b.arrived = true;                                  // geri alma/yükleme: park etmiş otobüs yerinde ve hazırdır (yolcu alabilir)
       vis.vcount = b.boarded; vis.vcolors = new Array(b.boarded).fill(b.color);
       setBusPassengers(g, vis.vcolors, (c) => (c === VIP_COLOR ? 0xffffff : this.hexOf(c)));
       vis.parked = true;
@@ -508,7 +509,7 @@ export class GameScene {
     if (vis.parts.arrow) vis.parts.arrow.visible = false;
     vis.bounce = 1; this.sfx('park');
     this.fx.puff(g.position.x, g.position.z + 1.0, 0xffffff, 4, 0.7);
-    if (b.vip) { this.fx.burst(g.position.x, 0.6, g.position.z, 0xffd45a, 26, 3.2, true, 1.0); this.fx.ring(g.position.x, g.position.z, 0xffd45a, 0.4, 2.6, 0.9); this.sfx('vip'); }
+    if (b.vip || b.slot === 'V') { this.fx.burst(g.position.x, 0.6, g.position.z, 0xffd45a, 26, 3.2, true, 1.0); this.fx.ring(g.position.x, g.position.z, 0xffd45a, 0.4, 2.6, 0.9); this.sfx('vip'); }
     E.markArrived(this.state, vis.id);
     this.onBusArrive?.(b);
     this.idleFired = false;
@@ -794,18 +795,46 @@ export class GameScene {
   }
 
   // vinç ile çağırma (yol kapalı olsa da): havadan park alanına
-  startCraneToSlot(id, slot) {
+  /** Kanatlar: yolu kapalı otobüs VIP alanına uçarak gelir. */
+  makeWings() {
+    const wm = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xbfe6ff, emissiveIntensity: 0.55, roughness: 0.4 });
+    const grp = new THREE.Group(); const wings = [];
+    for (const side of [-1, 1]) {
+      const pivot = new THREE.Group(); pivot.position.set(side * 0.38, 0.62, 0.1);
+      for (let i = 0; i < 4; i++) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(0.62 - i * 0.07, 0.035, 0.2), wm);
+        f.position.set(side * (0.34 - i * 0.03), 0.02 * i, -0.2 + i * 0.2); f.rotation.y = side * 0.18 * i; pivot.add(f);
+      }
+      grp.add(pivot); wings.push({ pivot, side });
+    }
+    grp.userData.wings = wings; return grp;
+  }
+
+  startCraneToSlot(id, slot, { wings = false } = {}) {
     const b = this.state.buses[id]; const vis = this.busVis.get(id); const g = vis.g;
+    const wg = wings ? this.makeWings() : null; if (wg) g.add(wg);
     const k = slot === 'V' ? 0 : slot + 1; const from = g.position.clone(); const fs = g.scale.x; const park = PARK_SCALE[b.len] || 0.75;
     vis.traveling = true; vis.fromBoard = true;
     this.fx.ring(from.x, from.z, 0xb58bff, 0.3, 1.8, 0.7); this.sfx('whoosh');
     const to = { x: slotX(k), z: SLOT_Z };
-    this.tween(0.95, (t) => {
+    this.tween(wings ? 1.25 : 0.95, (t) => {
       const e = ease.inOut(t);
-      g.position.x = from.x + (to.x - from.x) * e; g.position.z = from.z + (to.z - from.z) * e; g.position.y = Math.sin(t * Math.PI) * 3.2;
+      g.position.x = from.x + (to.x - from.x) * e; g.position.z = from.z + (to.z - from.z) * e; g.position.y = Math.sin(t * Math.PI) * (wings ? 3.8 : 3.2);
       g.scale.setScalar(fs + (park - fs) * e); g.rotation.y += angDiff(g.rotation.y, 0) * Math.min(1, t * 2);
-      if (Math.random() < 0.5) this.fx.stars.emit(g.position.x, g.position.y + 0.3, g.position.z, 0, 0, 0, 0xc9a7ff, 0.5, 0.2, 0.02, 0, 0);
-    }, () => { g.position.y = 0; vis.traveling = false; this.finishArrive(vis); });
+      if (Math.random() < 0.5) this.fx.stars.emit(g.position.x, g.position.y + 0.3, g.position.z, 0, 0, 0, wings ? 0xffe27a : 0xc9a7ff, 0.5, 0.2, 0.02, 0, 0);
+      if (wg) for (const w of wg.userData.wings) w.pivot.rotation.z = w.side * (0.25 + Math.sin(t * 38) * 0.55);
+    }, () => { if (wg) g.remove(wg); g.position.y = 0; vis.traveling = false; this.finishArrive(vis); });
+  }
+
+  /** Karıştır sonrası: tahtadaki otobüsler sırayla büyüyerek belirir. */
+  shuffleFx() {
+    const s = this.state; let i = 0;
+    for (const b of s.buses) {
+      if (b.st !== 'board') continue; const vis = this.busVis.get(b.id); if (!vis) continue;
+      const g = vis.g; const d = i++ * 0.035; g.scale.setScalar(0.01);
+      this.tween(0.45 + d, (k) => { const kk = Math.max(0, (k * (0.45 + d) - d) / 0.45); g.scale.setScalar(Math.max(0.01, ease.back(Math.min(1, kk)))); }, () => g.scale.setScalar(1));
+    }
+    this.fx.ring(0, BOARD_Z0 + s.h / 2, 0xc9a7ff, 0.4, 5.5, 0.8);
   }
 
   // VIP çağırma: gökten düşen VIP otobüs

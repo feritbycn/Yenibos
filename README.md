@@ -99,3 +99,11 @@ Haftalık ödüller 1./2./3. için 500/300/150 altın (config'den değişir), ge
 Saat hilesi: http modunda gün/hafta sunucu saatine göredir (gerçek koruma). Çevrimdışıda geri saat alma algılanır; ileri atlama çevrimdışı algılanamaz.
 
 Testler: `npm test`, `node tools/test-server.mjs`, `node tools/e2e.mjs`, `e2e2.mjs`, `e2e3.mjs`.
+
+## v4 değişiklikleri
+- **VIP artık bir haktır**: VIP düğmesine dokun, tahtadaki istediğin otobüsü seç; yolu açıksa sürerek, kapalıysa kanatlanıp uçarak VIP alanına gelir ve kendi rengindeki yolcuları kuyruğun her yerinden alır (önce öndekiler, dolmazsa arkadakiler). İlk hak hediye; sonrası reklamla ya da 100 jetonla (`VIP_CALL_PRICE`). Jeton yetmezse jeton mağazasına yönlendirir. Seviyelerde altın VIP otobüs yoktur; kapasite birebir kalır (boş bekleyen otobüs olmaz).
+- **Karıştır** hakkı: kalan otobüslerin yerlerini yeniden dizer, sonuç çözülebilirlik için çözücüyle doğrulanır.
+- **Paketler** (mağaza → Paketler): jetonla alınan güç paketleri (`PACKS`, `src/config.js`). Gerçek para satın alma kapalıdır.
+- **Hata düzeltmesi**: reklamla/geri alma ile konum yüklendiğinde park etmiş otobüsler "varmamış" sayılıp yolcu almıyordu; düzeltildi (e2e4 testi bu hatayı yeniden üretir ve doğrular).
+- Otobüs tasarım çeşitliliği: varsayılan stilde boyuna göre minibüs, van, şehir otobüsü, konfor otobüsü ve taksi karışık gelir. Satın alınabilir yeni stiller: Ekspres, Panoramik Turist, Yarış (kart görselleri `www/img/`).
+- Yeni logo ve açılış görseli (`www/splash.jpg`, Android ikonları), gerçek ilerleyen yükleme çubuğu.

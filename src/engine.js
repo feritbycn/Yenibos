@@ -1,5 +1,5 @@
 // Saf bulmaca motoru (render'dan bağımsız). Hem oyun hem çözücü/test aynı kuralları kullanır.
-import { SEATS_PER_CELL, TAXI_SEATS, VIP_COLOR, VIP_LEN, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE, QUEUE_WINDOW } from './config.js';
+import { SEATS_PER_CELL, TAXI_SEATS, VIP_COLOR, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE, QUEUE_WINDOW } from './config.js';
 
 export const DIRS = {
   U: { x: 0, y: -1, horiz: false },
@@ -118,8 +118,9 @@ export function markArrived(s, id) { const b = s.buses[id]; if (b) b.arrived = t
 export function headColor(s) { return s.qi < s.queue.length ? s.queue[s.qi] : null; }
 
 /**
- * Binecek yolcuyu ve otobüsü seçer. Kapıdaki ilk QUEUE_WINDOW yolcudan (önce en öndeki) herhangi biri,
- * kendi renginde, varmış ve yeri olan bir otobüse binebilir. Hiçbiri binemiyorsa en öndeki yolcu boş VIP'e biner (joker).
+ * Binecek yolcuyu ve otobüsü seçer.
+ *  1) Kapıdaki ilk QUEUE_WINDOW yolcudan (önce en öndeki) herhangi biri, kendi renginde, varmış ve yeri olan park yerindeki otobüse biner.
+ *  2) VIP alanındaki otobüs kendi rengindeki yolcuyu kuyruğun TAMAMINDAN alır (önce öndekiler, dolmazsa arkadakiler).
  * @returns {{bus:object, k:number}|null} k: yolcunun kuyruktaki ön-ofseti (0 = en öndeki)
  */
 export function boardPick(s) {
@@ -133,9 +134,11 @@ export function boardPick(s) {
       if (b.arrived && b.color === c && b.boarded < b.seats) return { bus: b, k };
     }
   }
-  if (n > 0 && s.vipSlot !== null) {
+  if (s.vipSlot !== null) {
     const b = s.buses[s.vipSlot];
-    if (b.arrived && b.boarded < b.seats) return { bus: b, k: 0 };
+    if (b.arrived && b.boarded < b.seats) {
+      for (let k = 0; s.qi + k < s.queue.length; k++) if (s.queue[s.qi + k] === b.color) return { bus: b, k };
+    }
   }
   return null;
 }
@@ -242,13 +245,15 @@ export function callBus(s, id) {
   return { ok: true, id: b.id, slot };
 }
 
-/** VIP otobüsü doğrudan VIP alanına çağırır (yeni araç oluşturur). */
-export function spawnVip(s) {
+/** VIP hakkı: seçilen otobüsü (yolu kapalı olsa bile) VIP alanına gönderir. VIP otobüs kendi rengindeki yolcuyu kuyruğun her yerinden alır. */
+export function vipSend(s, id) {
+  const b = s.buses[id];
+  if (!b || b.st !== 'board' || b.vip) return { ok: false, reason: 'invalid' };
   if (s.vipSlot !== null) return { ok: false, reason: 'vipfull' };
-  const id = s.buses.length;
-  s.buses.push({ id, color: VIP_COLOR, len: VIP_LEN, dir: 'U', x: 0, y: 0, x0: 0, y0: 0, vip: true, seats: VIP_SEATS, boarded: 0, st: 'parked', slot: 'V', arrived: false, summoned: true });
-  s.vipSlot = id;
-  return { ok: true, id };
+  const blocked = blockers(s, b).length > 0;
+  b.st = 'parked'; b.slot = 'V'; b.arrived = false; s.vipSlot = b.id;
+  s.moves++;
+  return { ok: true, id: b.id, blocked };
 }
 
 /** Otobüs dönüştürme: renk değiştir. Kapasite değişmez. */

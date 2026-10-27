@@ -41,7 +41,7 @@ export const SHOP = {
   ],
 };
 export const SHOP_TABS = [
-  ['coins', 'Jeton'], ['style', 'Otobüs'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
+  ['coins', 'Jeton'], ['packs', 'Paketler'], ['style', 'Otobüs'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
 ];
 export const POWER_INFO = {
   undo: { name: 'Geri Al', desc: 'Son hamleyi geri alır.', price: PRICES.undo },
@@ -51,6 +51,8 @@ export const POWER_INFO = {
   extraSlot: { name: 'Ek Park Yeri', desc: 'Bu seviye için bir park yeri açar.', price: PRICES.extraSlot },
   moves: { name: 'Ek Hamle', desc: 'Hamle sınırlı seviyelerde +4 hamle.', price: PRICES.moves },
   time: { name: 'Ek Süre', desc: 'Süreli seviyelerde +30 saniye.', price: PRICES.time },
+  vip: { name: 'VIP Hakkı', desc: 'Seçtiğin otobüsü VIP alanına gönderir; kendi rengindeki yolcuları kuyruğun her yerinden alır.', price: PRICES.vip },
+  shuffle: { name: 'Karıştır', desc: 'Tahtadaki otobüslerin yerini karıştırır (seviye çözülebilir kalır).', price: PRICES.shuffle },
 };
 
 export const DAILY_REWARDS = [
@@ -64,7 +66,7 @@ export const dayDiff = (a, b) => dayDiffKeys(a, b);
 export const QUEST_POOL = [
   { id: 'levels3', text: '3 seviye tamamla', ev: 'level', goal: 3, reward: 30 },
   { id: 'pass20', text: '20 yolcuyu otobüse bindir', ev: 'passenger', goal: 20, reward: 25 },
-  { id: 'vip1', text: 'Bir VIP otobüs kullan', ev: 'vip', goal: 1, reward: 35 },
+  { id: 'vip1', text: 'VIP hakkını kullan', ev: 'vip', goal: 1, reward: 35 },
   { id: 'puz5', text: '5 bulmacayı başarıyla tamamla', ev: 'level', goal: 5, reward: 60 },
   { id: 'star3', text: 'Bir seviyeyi 3 yıldızla bitir', ev: 'threeStar', goal: 1, reward: 40 },
   { id: 'bus12', text: '12 otobüsü yolcu ile doldur', ev: 'busFull', goal: 12, reward: 30 },
@@ -78,7 +80,7 @@ export const ACHIEVEMENTS = [
   { id: 'lv30', name: 'Şehir Ustası', text: '30 seviye tamamla', stat: 'levels', goal: 30, reward: 150 },
   { id: 'pass100', name: 'Kalabalık Taşıyıcı', text: '100 yolcu taşı', stat: 'passengers', goal: 100, reward: 50 },
   { id: 'pass1000', name: 'Metropol Hattı', text: '1000 yolcu taşı', stat: 'passengers', goal: 1000, reward: 200 },
-  { id: 'vip1', name: 'Kırmızı Halı', text: 'Bir VIP otobüs kullan', stat: 'vip', goal: 1, reward: 40 },
+  { id: 'vip1', name: 'Kırmızı Halı', text: 'VIP hakkını kullan', stat: 'vip', goal: 1, reward: 40 },
   { id: 'slot1', name: 'Genişleme', text: 'Bir ek park yeri aç', stat: 'slots', goal: 1, reward: 35 },
   { id: 'star10', name: 'Mükemmeliyetçi', text: '10 seviyede 3 yıldız al', stat: 'threeStars', goal: 10, reward: 120 },
 ];

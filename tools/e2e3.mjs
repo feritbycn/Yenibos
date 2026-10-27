@@ -93,17 +93,24 @@ const taxi = await ev(() => { const g = window.__game; const b = g.state.buses.f
 await shot('taxi_level');
 check('Tek hücrelik küçük araç taksi modeliyle çiziliyor (3–4 koltuk, 4 koltuk işareti)', taxiLevel > 0 && taxi.style === 'taxi' && taxi.marks === 4 && taxi.seats <= 4 && taxi.seats >= 3, JSON.stringify({ taxiLevel, taxi }));
 
-// ---------- 6) VIP çağırma: 800 jeton
+// ---------- 6) VIP hakkı: ilk hak hediye, sonra reklam / 100 jeton; jeton yetmezse jeton mağazasına yönlendirir
+await ev(() => { localStorage.clear(); }); await pg.reload(); await pg.waitForTimeout(1200);
+const fresh = await ev(() => window.__game.save.data.powerups.vip);
+check('Yeni oyuncuda 1 VIP hakkı hediye', fresh === 1, String(fresh));
 await prep(); await ev(() => { window.__game.ui.closeAll(); window.__game.startLevel(8); }); await ff(0.4);
-const vip = await ev(async () => { const g = window.__game; g.save.data.coins = 1000; g.save.data.temp.vipCalls = 0; const ok = await g.callVip('coin'); return { ok, coins: g.save.data.coins }; });
-check('VIP çağırmak 800 jeton (1000 → 200)', vip.ok && vip.coins === 200, JSON.stringify(vip));
-await ev(() => { const g = window.__game; g.save.data.coins = 700; g.save.data.temp.vipCalls = 0; g.state.vipSlot = null; });
-const vip2 = await ev(async () => { const g = window.__game; const s = g.state; s.vipSlot = null; return g.callVip('coin'); });
-check('700 jetonla VIP çağrılamıyor (yetersiz)', vip2 === false && (await ev(() => window.__game.save.data.coins)) === 700);
-await ev(() => { window.__game.ui.closeAll(); const c = window.__game.ui.modal({ title: 'x', body: '' }); c.close(); window.__game.offerVipCall(); }); await pg.waitForTimeout(200);
+const vip = await ev(async () => { const g = window.__game; g.save.data.powerups.vip = 1; g.onPower('vipcall'); const m = g.mode; const b = g.state.buses.find((x) => x.st === 'board' && !g.state.buses.some(() => false)); g.handleTap(b.id); return { m, left: g.save.data.powerups.vip, slot: g.state.vipSlot }; });
+await ff(2.5);
+check('VIP hakkı kullanıldı: seçilen otobüs VIP alanında', vip.m === 'vip' && vip.left === 0 && (await ev(() => window.__game.state.vipSlot)) !== null || vip.slot !== null, JSON.stringify(vip));
+await ev(() => { const g = window.__game; g.save.data.coins = 700; g.state.vipSlot = null; g.onPower('vipcall'); }); await pg.waitForTimeout(250);
 const vipTxt = await ev(() => document.querySelector('.sheet-foot')?.textContent || '');
-check('VIP penceresi reklam ve 800 jeton seçeneklerini gösteriyor', /Reklam izle/.test(vipTxt) && /800/.test(vipTxt), vipTxt);
+check('Hak bitince 100 jetonluk satın alma + reklam seçeneği çıkıyor', /Satın al.*100/.test(vipTxt) && /Reklam izle/.test(vipTxt), vipTxt);
 await shot('vip_offer');
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.save.data.coins = 20; g.onPower('vipcall'); }); await pg.waitForTimeout(250);
+const vipTxt2 = await ev(() => document.querySelector('.sheet-foot')?.textContent || '');
+check('Jeton yetmezse "Jeton al" yönlendirmesi çıkıyor', /Jeton yetmiyor/.test(vipTxt2), vipTxt2);
+await ev(() => document.querySelector('[data-act=needcoins]')?.click()); await pg.waitForTimeout(300);
+check('"Jeton al" jeton mağazasını açıyor', await ev(() => /Jeton paketlerini|Gerçek parayla/.test(document.body.innerText)));
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.save.data.coins = 5000; });
 
 // ---------- 7) Kayıp ekranı: en fazla 3 reklamlı geri alma
 await prep(); await ev(() => { window.__game.ui.closeAll(); window.__game.startLevel(8); }); await ff(0.4);

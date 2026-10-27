@@ -39,8 +39,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .mode-banner{top:calc(var(--sat) + 100px);background:linear-gradient(#7a4dff,#5a30e8);font-size:14px;display:flex;gap:10px;align-items:center}
 .mode-banner button{background:#fff;color:var(--ink);border-radius:10px;padding:4px 10px;font-weight:900}
 .hud-bottom{position:absolute;left:0;right:0;bottom:0;padding:0 calc(var(--sar) + 8px) calc(var(--sab) + 10px) calc(var(--sal) + 8px)}
-.power-bar{display:flex;gap:8px;justify-content:center;align-items:flex-end;background:rgba(28,42,90,.72);backdrop-filter:blur(6px);border:3px solid rgba(255,255,255,.9);border-radius:22px;padding:8px 8px 6px;box-shadow:var(--shadow)}
-.pw{position:relative;flex:1;max-width:60px;min-width:44px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;font-size:10px;font-weight:900;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.power-bar{display:flex;gap:5px;justify-content:center;align-items:flex-end;background:rgba(28,42,90,.72);backdrop-filter:blur(6px);border:3px solid rgba(255,255,255,.9);border-radius:22px;padding:8px 8px 6px;box-shadow:var(--shadow)}
+.pw{position:relative;flex:1;max-width:58px;min-width:40px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff;font-size:10px;font-weight:900;text-shadow:0 1px 0 rgba(0,0,0,.4)}
 .pw .btn{width:100%;aspect-ratio:1/1;max-height:50px;border-radius:15px;border:3px solid #fff;display:grid;place-items:center;box-shadow:0 4px 0 rgba(0,0,0,.28);color:#fff}
 .pw:active .btn{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.28)}
 .pw .cnt{position:absolute;right:-3px;top:-5px;min-width:21px;height:21px;border-radius:11px;background:#ff4a5e;border:2px solid #fff;color:#fff;font-size:12px;display:grid;place-items:center;padding:0 4px;font-weight:900}
@@ -51,6 +51,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .pw.recall .btn{background:linear-gradient(#34d98f,#12a766)}
 .pw.call .btn{background:linear-gradient(#ff7a9e,#ee3f7a)}
 .pw.convert .btn{background:linear-gradient(#b98cff,#7a4dff)}
+.pw.shuffle .btn{background:linear-gradient(#5be0d6,#139a94)}
 .pw.vipcall .btn{background:linear-gradient(#ffe27a,#e8a017);color:#6a4300}
 .pw.off{opacity:.45}
 /* ana menü */
@@ -228,3 +229,5 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .sp-load small{font-size:13px;font-weight:800;opacity:.9;text-shadow:0 2px 0 rgba(10,20,70,.7)}
 
 .bimg{width:100%;max-width:150px;height:62px;object-fit:cover;border-radius:10px;border:2px solid #fff;box-shadow:0 2px 6px rgba(20,30,80,.25)}
+
+.pw>span:last-child{white-space:nowrap;font-size:9.5px;letter-spacing:-.2px}

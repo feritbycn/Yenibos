@@ -63,3 +63,10 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Motor: 39/39, sunucu+HttpBackend (gerçek HTTP, yerel): 41/41, e2e: 18/18, e2e2: 26/26, e2e3: 27/27.
 - Test EDİLMEDİ: gerçek AdMob/Play Billing, sunucunun internete dağıtımı, gerçek cihazda ikon/native splash, gerçek oyuncuyla denge.
 - Bilinen sınırlar: VIP seviye içinde isteğe bağlı joker (kullanılınca normal otobüs kısmen dolu kalabilir); sunucu skoru hamle tekrarını doğrulamaz, yalnızca yıldız/puanı yeniden hesaplar. Yazılım-GPU'da bazı ekran görüntüleri zaman aşımına uğradı (test aracı sorunu).
+
+## v4 test sonuçları
+- Motor 45/45 (VIP hakkı kuyruğun derininden doldurma, Karıştır yerleşimi, paketler, 40 seviyede boş/yarım otobüs kalmaması), sunucu 41/41.
+- Tarayıcı testleri: e2e 18/18, e2e2 26/26, e2e3 (VIP hakkı/jeton/yönlendirme dahil), e2e4 11/11 (geri alma hatası, VIP doldurma, Karıştır, paketler, tasarım çeşitliliği).
+- Geri alma hatası düzeltmesi geri alınıp test koşulunca test BAŞARISIZ oluyor (testin hatayı gerçekten yakaladığı doğrulandı).
+- Test EDİLMEDİ: gerçek AdMob/Play Billing, gerçek cihazda dokunuş hissi ve performans, dengesi gerçek oyuncuyla; kanatlı uçuş efekti yalnızca ekran görüntüsüyle görüldü.
+- Bilinen sınırlar: yolcu penceresi (ilk 3 yolcu) aynı; farklı tahta şekilleri (yıldız/spiral gibi serbest açılı yerleşim) yapılmadı; seviyeler VIP olmadan yeniden üretildi ve zorluğu oyuncuyla denenmedi.

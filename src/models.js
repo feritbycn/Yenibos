@@ -99,6 +99,13 @@ export const BUS_STYLES = {
   sport:  { label: 'Yarış Otobüsü', price: 2000 },
 };
 
+/** Varsayılan (Şehir) stilde otobüsler boyuna göre farklı tasarım alır; satın alınan stil hepsine uygulanır. */
+export function styleFor(selected, len, id = 0) {
+  if (selected !== 'city') return selected;
+  if (len === 2) return id % 2 ? 'van' : 'mini';
+  if (len >= 4) return 'coach';
+  return 'city';
+}
 export function busLength(len) { return len * 1.0 - 0.12; }
 export const BUS_WIDTH = 0.76;
 export const PARK_SCALE = { 1: 0.85, 2: 0.8, 3: 0.75, 4: 0.72 };
@@ -194,8 +201,8 @@ export function buildBus(o) {
   const roofMat = o.vip ? paint(skin.trim) : style === 'express' ? paint(0xf4f7fb) : style === 'sport' ? paint(0x20232c) : style === 'tourist' ? paint(darken(bodyHex, 0.05)) : lux ? paintLux(lighten(bodyHex, 0.06)) : modern ? paint(darken(bodyHex, 0.08)) : paint(lighten(bodyHex, 0.12));
   const parts = { wheels: [], seatMarks: [], body: [], bodyMat, style };
 
-  const lowH = style === 'mini' ? 0.44 : modern ? 0.32 : lux ? 0.36 : 0.38;
-  const cabH = style === 'school' ? 0.38 : style === 'mini' ? 0.24 : modern ? 0.35 : lux ? 0.31 : 0.3;
+  const lowH = style === 'mini' ? 0.44 : style === 'van' ? 0.42 : modern ? 0.32 : lux ? 0.36 : 0.38;
+  const cabH = style === 'school' ? 0.38 : style === 'mini' ? 0.24 : style === 'van' ? 0.27 : modern ? 0.35 : lux ? 0.31 : 0.3;
   const y0 = 0.12;
   // alt gövde
   const low = new THREE.Mesh(rbox(W, lowH, Lz, style === 'mini' ? 0.16 : modern ? 0.15 : 0.11), bodyMat);
@@ -256,6 +263,12 @@ export function buildBus(o) {
     ac.position.set(0, roofTop + 0.02, Lz * 0.12); g.add(ac);
     const skirt = new THREE.Mesh(rbox(W + 0.012, 0.07, Lz - 0.2, 0.02, 2), mat('skirt', () => new THREE.MeshStandardMaterial({ color: 0xaab4c2, metalness: 0.7, roughness: 0.3 })));
     skirt.position.y = y0 + 0.06; g.add(skirt);
+  }
+  if (style === 'van') {
+    const band = new THREE.Mesh(rbox(W + 0.012, 0.05, Lz - 0.1, 0.012, 2), M.white()); band.position.y = y0 + 0.2; g.add(band);
+    for (const side of [-1, 1]) { const door = new THREE.Mesh(rbox(0.02, 0.24, 0.03, 0.008, 2), M.dark()); door.position.set(side * (W / 2 + 0.004), y0 + 0.28, -Lz * 0.08); g.add(door); }
+    const rackV = new THREE.Mesh(rbox(0.46, 0.035, cabL * 0.55, 0.012, 2), M.dark()); rackV.position.set(0, roofTop + 0.012, Lz * 0.1); g.add(rackV);
+    const beacon = new THREE.Mesh(cached('beacon', () => new THREE.SphereGeometry(0.05, 10, 8)), mat('beaconm', () => new THREE.MeshStandardMaterial({ color: 0xffb100, emissive: 0xff8a00, emissiveIntensity: 1.2 }))); beacon.position.set(0, roofTop + 0.06, -Lz * 0.3); g.add(beacon);
   }
   if (style === 'mini') {
     const rack = new THREE.Mesh(rbox(0.4, 0.04, cabL * 0.5, 0.015, 2), M.dark());
@@ -335,7 +348,7 @@ export function buildBus(o) {
     arrow.rotation.x = -Math.PI / 2;
     const s = Math.min(0.52, Lz * 0.55);
     arrow.scale.set(s, s, 1);
-    arrow.position.set(0, roofTop + (style === 'coach' || style === 'mini' || modern || lux || style === 'express' || style === 'tourist' || style === 'sport' ? 0.056 : 0.006), style === 'coach' ? -Lz * 0.22 : (o.len >= 2 ? -Lz * 0.08 : 0));
+    arrow.position.set(0, roofTop + (style === 'coach' || style === 'mini' || modern || lux || style === 'express' || style === 'tourist' || style === 'sport' || style === 'van' ? 0.056 : 0.006), style === 'coach' ? -Lz * 0.22 : (o.len >= 2 ? -Lz * 0.08 : 0));
     arrow.renderOrder = 3; g.add(arrow); parts.arrow = arrow;
   }
   // VIP süsleri
