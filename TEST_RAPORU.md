@@ -22,6 +22,12 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Mağaza satın alma/kuşanma, yetersiz jeton reddi, kalıcı slot satın alma, yeniden yükleme sonrası kayıt korunması, **bozuk kayıt dosyasında güvenli varsayılan**, görev ilerlemesi.
 - Görsel kontrol: 360×640, 390×780, 412×915, 768×1024 çözünürlüklerde ekran görüntüsü alındı, düzen bozulmadı.
 
+### 2. tur değişiklikleri (geri bildirim sonrası) — doğrulama
+- **Engele çarpma:** engelli otobüs engele kadar hızlanıp çarpıyor; kıvılcım/duman halkası, kamera sarsıntısı, çarpılan otobüste sarsılma ve geri sekme. Kare kare ekran görüntüsüyle doğrulandı (otobüs ileri gidip geri dönüyor).
+- **Park yeri kuralı:** sahne meşgulken (otobüs yolda / yolcular biniyor) verilen dokunuş artık yok sayılmıyor, sıraya alınıp sahne boşalınca uygulanıyor. Yer gerçekten doluysa otobüs yine çıkamıyor (uyarı).
+- **Seviye bitince yarım kalan otobüsler:** VIP yolcu aldığında regüler otobüsler dolmadan kalabiliyor; seviye bitince park yerindeki tüm otobüsler yolcularıyla ayrılıyor, sonra sonuç ekranı geliyor (VIP'li seviyelerde 2, 16 için senaryo testi: bitişte park yerinde otobüs kalmadı).
+- Regresyon: `npm test` 21/21, `e2e` 18/18, `e2e2` 21/21 (40 seviye).
+
 ### Testlerin bulduğu ve düzelttiği hatalar
 - Kayıt temizleme (`sanitize`) varsayılan nesneyi aliaslıyordu → yeniden açılışta `stats`/`powerups` boşalıyordu. Düzeltildi, testle doğrulandı.
 - Varış olayı hiç tetiklenmiyordu, `hidden` özniteliğini CSS eziyordu, iç mekân opak çiziliyordu vb. (geliştirme sırasında düzeltildi).

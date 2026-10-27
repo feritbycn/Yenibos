@@ -51,7 +51,7 @@ check('Kırmızı yolcular bindi (4 yolcu) ve otobüs kalktı', s.qi === 4 && s.
 check('Eğitim sıradaki adıma geçti (mavi)', s.tut === 'tap', JSON.stringify(s));
 await realTap(1); s = await waitIdle();
 check('Mavi otobüs sonrası 10 yolcu bindi', s.qi === 10, JSON.stringify(s));
-await realTap(2); s = await waitIdle(60); await ff(2.5);
+await realTap(2); s = await waitIdle(60); await ff(2.5); await pg.waitForTimeout(2300);
 s = await state(); await shot('08_l1_done');
 check('Seviye 1 tamamlandı (sonuç ekranı)', s.phase === 'ended' && s.modals === 1, JSON.stringify(s));
 await ff(3); await shot('09_l1_result');

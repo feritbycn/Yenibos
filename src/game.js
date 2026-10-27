@@ -139,6 +139,7 @@ export class Game {
   }
 
   beginStage(i, prevOpen) {
+    this.finalPending = false; this.pendingTaps = [];
     const lvl = this.lvl; const stage = lvl.stages[i]; const d = this.save.data;
     const base = stage.slots ?? lvl.slotsBase ?? 4;
     const state = E.makeState(stage, { slotsOpen: Math.min(7, base + d.perm.slots), moveLimit: lvl.moveLimit ? lvl.moveLimit + this.extraMoves : null });
@@ -163,6 +164,8 @@ export class Game {
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.refreshChips(); this.fail('time'); }
     }
     if (this.phase === 'play') this.tut.update(dt);
+    if (this.pendingTaps?.length && this.phase === 'play' && !this.paused && !this.mode && !this.ui.hasModal && !this.scene.isBusy()) this.handleTap(this.pendingTaps.shift());
+    else if (this.pendingTaps?.length && this.phase !== 'play') this.pendingTaps.length = 0;
   }
   refreshChipsThrottled(dt) { this._ct = (this._ct || 0) + dt; if (this._ct > 0.25) { this._ct = 0; this.refreshChips(); } }
 
@@ -171,7 +174,7 @@ export class Game {
     if (this.phase !== 'play' || this.paused) return;
     if (this.mode === 'convert') { this.openConvert(id); return; }
     if (this.mode === 'recall') return;
-    if (this.scene.isTraveling()) return;
+    if (this.scene.isTraveling()) { this.queueTap(id); return; }
     const s = this.state; const snap = E.clone(s);
     const r = E.tap(s, id);
     this.scene.clearGlows();
@@ -181,11 +184,19 @@ export class Game {
       this.tut.onMove(id); this.refreshChips();
       if (s.buses[id].vip) this.ui.toast('VIP otobüs yola çıktı!', 'good');
     } else if (r.reason === 'blocked') {
-      this.scene.bump(id); for (const b of r.blockers) this.scene.flashBus(b, 0xff4d4d, 0.7); this.refreshChips();
+      this.scene.bump(id, r.blockers); for (const b of r.blockers) this.scene.flashBus(b, 0xff4d4d, 0.7); this.refreshChips();
       if (s.moveLimit !== null) this.scene.idleFired = false;
     } else if (r.reason === 'noslot') {
+      if (this.scene.isBusy()) { this.queueTap(id); return; }   // yolcular biniyor / otobüs yoldaysa yer açılabilir: sıraya al
       this.sound.play('error'); this.ui.toast('Park yerleri dolu! + alanlardan ek yer açabilirsin.', 'bad'); this.scene.shakeBus(id);
     } else if (r.reason === 'vipfull') { this.sound.play('error'); this.ui.toast('VIP alanı dolu.', 'bad'); } else if (r.reason === 'limit') { this.scene.idleFired = false; }
+  }
+
+  /** Sahne meşgulken verilen dokunuşu sıraya alır; sahne boşalınca uygulanır (park yeri boşalıyorsa otobüs çıkar). */
+  queueTap(id) {
+    const b = this.state.buses[id]; this.pendingTaps ||= [];
+    if (!b || b.st !== 'board' || this.pendingTaps.includes(id) || this.pendingTaps.length >= 3) return;
+    this.pendingTaps.push(id); this.scene.flashBus(id, 0x7be26b, 0.35);
   }
 
   handleSlotTap(i) {
@@ -201,7 +212,7 @@ export class Game {
   }
 
   onIdle() {
-    if (this.phase === 'transition') { if (!this.state.buses.some((b) => b.st === 'parked')) this.nextStage(); return; }
+    if (this.phase === 'transition') { if (!this.state.buses.some((b) => b.st === 'parked')) { if (this.finalPending) { this.finalPending = false; this.levelComplete(); } else this.nextStage(); } return; }
     if (this.phase !== 'play') return;
     this.tut.onIdle();
     const ev = E.evaluate(this.state);
@@ -214,6 +225,9 @@ export class Game {
       this.phase = 'transition'; this.scene.forceDepart = true; this.scene.idleFired = false; this.tut.stop();
       this.sound.play('coin'); this.ui.toast('Aşama tamamlandı!', 'good');
       if (!this.state.buses.some((b) => b.st === 'parked')) this.nextStage();
+    } else if (this.state.buses.some((b) => b.st === 'parked')) {
+      // Seviye bitti: park yerinde kalan (yarım) otobüsler de yolcularıyla ayrılsın, sonra sonuç ekranı
+      this.phase = 'transition'; this.finalPending = true; this.scene.forceDepart = true; this.scene.idleFired = false; this.tut.stop();
     } else this.levelComplete();
   }
 
@@ -225,6 +239,7 @@ export class Game {
 
   fail(reason) {
     if (this.phase !== 'play') return;
+    this.pendingTaps = [];
     this.phase = 'ended'; this.tut.stop(); this.setMode(null); this.sound.play('lose');
     const s = this.state; const d = this.save.data;
     const canSlotAd = s.slotOpen.some((o) => !o) && ADS.mode !== 'off';

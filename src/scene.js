@@ -569,13 +569,56 @@ export class GameScene {
   // ------------------------------------------------------------------ Efektler / geri bildirim
   tween(dur, fn, done) { this.tweens.push({ t: 0, dur, fn, done }); }
 
-  bump(id) {
+  /** Engele çarpma: engele doğru hızlan, çarp (kıvılcım + kamera sarsıntısı + engel sarsılır), geri sek. */
+  bump(id, blockers = []) {
     const vis = this.busVis.get(id); if (!vis) return;
-    const b = this.state.buses[id]; const d = E.DIRS[b.dir]; const g = vis.g;
+    const st = this.state; const b = st.buses[id]; const d = E.DIRS[b.dir]; const g = vis.g;
+    if (vis.bumping) return; vis.bumping = true;
     const bx = g.userData.baseX, bz = g.userData.baseZ;
-    this.tween(0.32, (k) => { const o = Math.sin(k * Math.PI) * 0.16; g.position.x = bx + d.x * o; g.position.z = bz + d.y * o; g.rotation.z = Math.sin(k * Math.PI * 4) * 0.04 * (1 - k); }, () => { g.position.set(bx, 0, bz); g.rotation.z = 0; });
-    if (vis.parts.arrow) { vis.parts.arrow.material.color.set(0xff5a5a); setTimeout(() => vis.parts.arrow && vis.parts.arrow.material.color.set(0xffffff), 350); }
-    this.sfx('error');
+    // engele kadar boş hücre sayısı
+    const occ = E.occupancy(st, id); let gap = 0, hitKey = null;
+    for (const [cx, cy] of E.pathCells(st, b)) { const k = cx + ',' + cy; if (occ.has(k)) { hitKey = k; break; } gap++; }
+    const reach = Math.max(0.1, gap - 0.04);                 // dokunana kadar
+    const T1 = 0.14 + 0.06 * Math.min(gap, 5), T2 = 0.42, T = T1 + T2;
+    let hit = false;
+    const hitId = blockers[0];
+    const hx = bx + d.x * (reach + b.len / 2), hz = bz + d.y * (reach + b.len / 2);
+    this.sfx('engine');
+    this.tween(T, (k) => {
+      const t = k * T; let o;
+      if (t < T1) { const u = t / T1; o = reach * u * u; }                       // hızlanarak ilerle
+      else {
+        if (!hit) { hit = true; this.onBumpHit(vis, hitId, d, hx, hz, gap); }
+        const u = (t - T1) / T2;                                                  // geri sek (yaylı)
+        o = reach * (1 - Math.min(1, u * 1.15)) + Math.sin(u * Math.PI * 2.2) * 0.1 * (1 - u) * (u < 0.5 ? -1 : 1) * 0.5;
+        if (u >= 1) o = 0;
+      }
+      g.position.x = bx + d.x * o; g.position.z = bz + d.y * o;
+      const imp = t >= T1 ? Math.max(0, 1 - (t - T1) / 0.25) : 0;                 // çarpma anında yaylanma
+      g.rotation.z = Math.sin(t * 60) * 0.05 * imp;
+      g.scale.set(1 + 0.05 * imp * (d.horiz ? -1 : 1) * 0.5, 1, 1 + 0.05 * imp * (d.horiz ? 1 : -1) * 0.5);
+    }, () => { g.position.set(bx, 0, bz); g.rotation.z = 0; g.scale.setScalar(1); vis.bumping = false; });
+    if (vis.parts.arrow) { vis.parts.arrow.material.color.set(0xff5a5a); setTimeout(() => vis.parts.arrow && vis.parts.arrow.material.color.set(0xffffff), 450); }
+    void hitKey;
+  }
+
+  onBumpHit(vis, hitId, d, hx, hz, gap) {
+    this.sfx('bump');
+    this.fx.burst(hx, 0.6, hz, 0xffc94a, 14, 3.2, true, 0.6);
+    this.fx.burst(hx, 0.5, hz, 0xffffff, 8, 2.2, false, 0.45);
+    this.fx.puff(hx, hz, 0xffffff, 4, 0.7);
+    this.fx.ring(hx, hz, 0xffb347, 0.2, 1.4, 0.45);
+    this.shakeCamera(0.16 + Math.min(gap, 4) * 0.025, 0.32);
+    if (hitId !== undefined) {                                  // engel otobüsü sarsılsın
+      const ov = this.busVis.get(hitId); if (!ov) return; const og = ov.g; const ox = og.userData.baseX, oz = og.userData.baseZ;
+      this.flashBus(hitId, 0xff4d4d, 0.7);
+      this.tween(0.4, (k) => { const o = Math.sin(k * Math.PI * 3) * 0.14 * (1 - k); og.position.x = ox + d.x * o; og.position.z = oz + d.y * o; og.rotation.z = Math.sin(k * 40) * 0.035 * (1 - k); }, () => { og.position.x = ox; og.position.z = oz; og.rotation.z = 0; });
+    }
+  }
+
+  shakeCamera(amp = 0.15, dur = 0.3) {
+    const cam = this.camera; if (this._shaking) return; this._shaking = true; const base = cam.position.clone();
+    this.tween(dur, (k) => { const f = (1 - k) * amp; cam.position.set(base.x + (Math.random() - 0.5) * f, base.y + (Math.random() - 0.5) * f * 0.6, base.z + (Math.random() - 0.5) * f); }, () => { cam.position.copy(base); this._shaking = false; });
   }
 
   flashBus(id, color = 0xff4d4d, dur = 0.6) {

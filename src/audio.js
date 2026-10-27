@@ -47,6 +47,7 @@ export class Sound {
       case 'park': this.tone(140, 0.16, { type: 'sine', vol: 0.22, slide: -80 }); this.noise(0.1, { vol: 0.1, lp: 900 }); this.haptic(18); break;
       case 'board': if (!this.throttled('board', 55)) return; this.tone(640 + Math.random() * 160, 0.09, { type: 'sine', vol: 0.12, slide: 420 }); break;
       case 'step': if (!this.throttled('step', 90)) return; this.noise(0.03, { vol: 0.03, lp: 2500 }); break;
+      case 'bump': this.tone(120, 0.16, { type: 'square', vol: 0.15, slide: -70, lp: 600 }); this.tone(55, 0.28, { type: 'sine', vol: 0.22, slide: -15 }); this.haptic(70); break;
       case 'error': this.tone(150, 0.2, { type: 'sawtooth', vol: 0.12, slide: -40, lp: 700 }); this.haptic(45); break;
       case 'coin': this.tone(990, 0.08, { type: 'square', vol: 0.07 }); this.tone(1480, 0.18, { type: 'square', vol: 0.07, delay: 0.07 }); break;
       case 'vip': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.28, { type: 'triangle', vol: 0.11, delay: i * 0.06 })); this.haptic(30); break;
