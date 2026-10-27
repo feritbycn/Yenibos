@@ -11,6 +11,9 @@ export const SHOP = {
     { id: 'school', name: 'Okul Servisi', price: 450, desc: 'Siyah şeritli, dur levhalı servis.' },
     { id: 'coach', name: 'Konfor Otobüsü', price: 800, desc: 'Uzun camlı, gümüş etekli yolcu otobüsü.' },
     { id: 'modern', name: 'Modern Otobüs', price: 1200, desc: 'Alçak, aerodinamik, panoramik camlı; LED ışık şeritli.' },
+    { id: 'express', name: 'Ekspres', price: 1500, desc: 'Beyaz tavan, çift şerit, LED ön tabela.' },
+    { id: 'tourist', name: 'Panoramik Turist', price: 1800, desc: 'Cam tavan, sarı şerit, tavan ışıkları.' },
+    { id: 'sport', name: 'Yarış Otobüsü', price: 2000, desc: 'Yarış şeritleri ve spoyler.' },
     { id: 'luxury', name: 'Lüks Otobüs', price: 2500, desc: 'Metalik boya, krom detaylar, koyu camlı VIP yolcu otobüsü.' },
   ],
   palette: [

@@ -94,6 +94,9 @@ export const BUS_STYLES = {
   luxury: { label: 'Lüks Otobüs', price: 2500 },
   school: { label: 'Okul Servisi', price: 450 },
   coach:  { label: 'Konfor Otobüsü', price: 800 },
+  express: { label: 'Ekspres', price: 1500 },
+  tourist: { label: 'Panoramik Turist', price: 1800 },
+  sport:  { label: 'Yarış Otobüsü', price: 2000 },
 };
 
 export function busLength(len) { return len * 1.0 - 0.12; }
@@ -186,8 +189,9 @@ export function buildBus(o) {
   const bodyHex = o.vip ? skin.body : o.hex;
   const g = new THREE.Group();
   const lux = style === 'luxury', modern = style === 'modern';
+  
   const bodyMat = lux ? paintLux(bodyHex) : paint(bodyHex);
-  const roofMat = o.vip ? paint(skin.trim) : lux ? paintLux(lighten(bodyHex, 0.06)) : modern ? paint(darken(bodyHex, 0.08)) : paint(lighten(bodyHex, 0.12));
+  const roofMat = o.vip ? paint(skin.trim) : style === 'express' ? paint(0xf4f7fb) : style === 'sport' ? paint(0x20232c) : style === 'tourist' ? paint(darken(bodyHex, 0.05)) : lux ? paintLux(lighten(bodyHex, 0.06)) : modern ? paint(darken(bodyHex, 0.08)) : paint(lighten(bodyHex, 0.12));
   const parts = { wheels: [], seatMarks: [], body: [], bodyMat, style };
 
   const lowH = style === 'mini' ? 0.44 : modern ? 0.32 : lux ? 0.36 : 0.38;
@@ -270,6 +274,25 @@ export function buildBus(o) {
     for (const z of [-Lz * 0.3, Lz * 0.3]) { const rail = new THREE.Mesh(rbox(W + 0.02, 0.02, 0.035, 0.01, 2), M.chrome()); rail.position.set(0, y0 + lowH + cabH * 0.5, z); g.add(rail); }
     const emblem = new THREE.Mesh(cached('emblem', () => new THREE.SphereGeometry(0.035, 12, 8)), goldMat()); emblem.position.set(0, y0 + 0.3, -Lz / 2 - 0.01); g.add(emblem);
   }
+  if (style === 'express') {
+    for (const x of [-0.17, 0.17]) { const st = new THREE.Mesh(new THREE.PlaneGeometry(0.1, cabL - 0.1), paint(bodyHex)); st.rotation.x = -Math.PI / 2; st.position.set(x, roofTop + 0.004, 0); g.add(st); }
+    const led = new THREE.Mesh(rbox(W - 0.18, 0.04, 0.03, 0.01, 2), M.led()); led.position.set(0, y0 + lowH + cabH - 0.03, -Lz / 2 + 0.006); g.add(led);
+    const band = new THREE.Mesh(rbox(W + 0.012, 0.045, Lz - 0.1, 0.012, 2), M.white()); band.position.y = y0 + 0.19; g.add(band);
+    const ac2 = new THREE.Mesh(rbox(0.3, 0.05, Math.min(0.55, cabL * 0.3), 0.025, 2), M.white()); ac2.position.set(0, roofTop + 0.02, Lz * 0.28); g.add(ac2);
+  }
+  if (style === 'tourist') {
+    const pano = new THREE.Mesh(rbox(W - 0.22, 0.03, cabL - 0.3, 0.02, 2), M.glass()); pano.position.set(0, roofTop + 0.005, 0); g.add(pano);
+    const lights = mat('tlights', () => new THREE.MeshStandardMaterial({ color: 0xffe27a, emissive: 0xffc414, emissiveIntensity: 1.1 }));
+    for (const side of [-1, 1]) { const ln = new THREE.Mesh(rbox(0.035, 0.03, cabL - 0.2, 0.012, 2), lights); ln.position.set(side * (W / 2 - 0.04), roofTop + 0.01, 0); g.add(ln); }
+    const stripeT = new THREE.Mesh(rbox(W + 0.012, 0.05, Lz - 0.1, 0.012, 2), mat('tstripe', () => new THREE.MeshStandardMaterial({ color: 0xffc414, roughness: 0.4 }))); stripeT.position.y = y0 + 0.19; g.add(stripeT);
+  }
+  if (style === 'sport') {
+    for (const x of [-0.1, 0.1]) { const st = new THREE.Mesh(new THREE.PlaneGeometry(0.09, cabL - 0.05), M.white()); st.rotation.x = -Math.PI / 2; st.position.set(x, roofTop + 0.004, 0); g.add(st); }
+    const sp2 = new THREE.Mesh(rbox(W - 0.1, 0.04, 0.1, 0.012, 2), M.dark()); sp2.position.set(0, roofTop + 0.07, Lz / 2 - 0.12); g.add(sp2);
+    for (const side of [-1, 1]) { const post = new THREE.Mesh(rbox(0.03, 0.08, 0.04, 0.01, 2), M.dark()); post.position.set(side * 0.28, roofTop + 0.03, Lz / 2 - 0.12); g.add(post); }
+    const fl = new THREE.Mesh(rbox(W + 0.012, 0.04, Lz - 0.1, 0.012, 2), M.white()); fl.position.y = y0 + 0.2; g.add(fl);
+    const skirtS = new THREE.Mesh(rbox(W + 0.012, 0.06, Lz - 0.18, 0.02, 2), M.dark()); skirtS.position.y = y0 + 0.05; g.add(skirtS);
+  }
   // tekerlekler
   const rimM = o.vip ? goldMat() : rimMaterial(o.rim || 'steel');
   const axleZ = [];
@@ -312,7 +335,7 @@ export function buildBus(o) {
     arrow.rotation.x = -Math.PI / 2;
     const s = Math.min(0.52, Lz * 0.55);
     arrow.scale.set(s, s, 1);
-    arrow.position.set(0, roofTop + (style === 'coach' || style === 'mini' || modern || lux ? 0.052 : 0.006), style === 'coach' ? -Lz * 0.22 : (o.len >= 2 ? -Lz * 0.08 : 0));
+    arrow.position.set(0, roofTop + (style === 'coach' || style === 'mini' || modern || lux || style === 'express' || style === 'tourist' || style === 'sport' ? 0.056 : 0.006), style === 'coach' ? -Lz * 0.22 : (o.len >= 2 ? -Lz * 0.08 : 0));
     arrow.renderOrder = 3; g.add(arrow); parts.arrow = arrow;
   }
   // VIP süsleri
@@ -358,6 +381,8 @@ export function recolorBus(group, hex) {
   // tavan: stile göre
   if (p.style === 'taxi') p.body[1].material = paint(lighten(hex, 0.12));
   else if (p.style === 'luxury') p.body[1].material = paintLux(lighten(hex, 0.06));
+  else if (p.style === 'express') p.body[1].material = paint(0xf4f7fb);
+  else if (p.style === 'sport') p.body[1].material = paint(0x20232c);
   else p.body[1].material = p.style === 'modern' ? paint(darken(hex, 0.08)) : paint(lighten(hex, 0.12));
   p.bodyMat = m;
 }

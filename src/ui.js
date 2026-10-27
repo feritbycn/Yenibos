@@ -1,6 +1,7 @@
 // DOM arayüzü: menü, modallar, mağaza, koleksiyon, görevler, ayarlar, sonuç ekranları.
 import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
+const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
 import { PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST } from './config.js';
 import { Clock } from './time.js';
@@ -127,7 +128,7 @@ export class UI {
           const owned = d.owned[tab].includes(it.id), eq = d.equipped[tab] === it.id;
           let sw = '';
           if (tab === 'palette') sw = `<div class="swatch">${PALETTES[it.id].slice(0, 6).map((h) => `<i style="background:${hex6(h)}"></i>`).join('')}</div>`;
-          else if (tab === 'style') sw = `<div style="color:#2f6bff">${ico('bus', 52)}</div>`;
+          else if (tab === 'style') sw = STYLE_IMG[it.id] ? `<img class="bimg" src="${STYLE_IMG[it.id]}" alt="">` : `<div style="color:#2f6bff">${ico('bus', 52)}</div>`;
           else if (tab === 'rim') sw = `<div class="swatch" style="width:48px;height:48px;border-radius:50%;background:radial-gradient(#222 45%,${it.id === 'gold' ? '#ffc83a' : it.id === 'neon' ? '#35f0ff' : it.id === 'chrome' ? '#f5f8ff' : '#cfd6de'} 48%)"></div>`;
           else if (tab === 'trail') sw = `<div style="font-size:34px;line-height:42px">${{ dust: '💨', sparkle: '✨', stars: '⭐', bubbles: '🫧' }[it.id]}</div>`;
           else sw = `<div style="color:${hex6(VIP_SKINS[it.id].body)}">${ico('vip', 48)}</div>`;
@@ -170,7 +171,7 @@ export class UI {
     };
     const render = () => {
       const list = entries(); const got = list.filter((e) => e.owned).length;
-      c.setBody(`<p style="text-align:center">Açılan: <b>${got}/${list.length}</b></p><div class="grid">${list.map((e) => `<button class="card ${e.eq ? 'eq' : ''}" data-act="open" data-cat="${e.cat}" data-id="${e.id}" style="${e.owned ? '' : 'filter:grayscale(.85)'}"><span class="tag ${e.owned ? '' : 'lock'}">${e.owned ? e.kind : ico('lock', 10)}</span><div style="color:${e.color}">${ico(e.cat === 'vipSkin' ? 'vip' : 'bus', 56)}</div><div class="nm">${e.owned ? e.name : '???'}</div><div class="ds">${e.owned ? e.desc : `${e.price} jetonla açılır`}</div></button>`).join('')}</div>`);
+      c.setBody(`<p style="text-align:center">Açılan: <b>${got}/${list.length}</b></p><div class="grid">${list.map((e) => `<button class="card ${e.eq ? 'eq' : ''}" data-act="open" data-cat="${e.cat}" data-id="${e.id}" style="${e.owned ? '' : 'filter:grayscale(.85)'}"><span class="tag ${e.owned ? '' : 'lock'}">${e.owned ? e.kind : ico('lock', 10)}</span>${e.cat === 'style' && STYLE_IMG[e.id] ? `<img class="bimg" src="${STYLE_IMG[e.id]}" alt="">` : `<div style="color:${e.color}">${ico(e.cat === 'vipSkin' ? 'vip' : 'bus', 56)}</div>`}<div class="nm">${e.owned ? e.name : '???'}</div><div class="ds">${e.owned ? e.desc : `${e.price} jetonla açılır`}</div></button>`).join('')}</div>`);
     };
     render();
     this.onAct(c, { open: (ds) => this.busDetail(ds.cat, ds.id, render) });
