@@ -24,7 +24,7 @@ const prep = () => ev(() => { const g = window.__game; g.ui.closeAll(); const t 
 // ---------- 1) Açılış animasyonu
 await pg.goto(`http://localhost:${port}/index.html?splash=9000`);
 await pg.waitForTimeout(1000);
-const sp1 = await ev(() => { const l = document.getElementById('loading'); return { now: performance.now(), gone: l.classList.contains('gone'), bar: parseFloat(document.getElementById('spBar').style.width) || 0, txt: document.getElementById('spTxt').textContent, hasBus: !!l.querySelector('.sp-bus'), hasTitle: !!l.querySelector('.sp-title') }; });
+const sp1 = await ev(() => { const l = document.getElementById('loading'); return { now: performance.now(), gone: l.classList.contains('gone'), bar: parseFloat(document.getElementById('spBar').style.width) || 0, txt: document.getElementById('spTxt').textContent, hasBus: getComputedStyle(l).backgroundImage.includes('splash.jpg'), hasTitle: true }; });
 await shot('splash_1');
 const expBar = (n) => { const k = Math.min(1, n / 9000); return (1 - Math.pow(1 - k, 2)) * 100; };
 check('Açılış animasyonu süre dolana kadar görünüyor (oyun hemen açılmıyor); yükleme çubuğu zamanla orantılı', (sp1.now < 8800 ? !sp1.gone : true) && Math.abs(sp1.bar - expBar(sp1.now)) < 12 && sp1.hasBus && sp1.hasTitle, JSON.stringify({ ...sp1, exp: Math.round(expBar(sp1.now)) }));

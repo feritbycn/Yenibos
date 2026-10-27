@@ -184,9 +184,6 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .tut-ring{position:absolute;left:0;top:0;width:70px;height:70px;margin:-35px 0 0 -35px;pointer-events:none}.tut-ring i{display:block;width:100%;height:100%;border-radius:50%;border:5px solid #ffe27a;box-shadow:0 0 18px #ffd23f;animation:ring 1s infinite}
 @keyframes ring{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.5);opacity:0}}
 /* açılış animasyonu */
-#loading{position:absolute;inset:0;z-index:100;background:linear-gradient(#4a7dff 0%,#7fb6ff 45%,#cfe6ff 70%,#aebde0 100%);overflow:hidden;display:flex;flex-direction:column;align-items:center;color:#fff;transition:opacity .55s,transform .55s}
-#loading.gone{opacity:0;pointer-events:none;transform:scale(1.06)}
-.sp-sky{position:absolute;inset:0;pointer-events:none}
 .sun{position:absolute;right:12%;top:9%;width:84px;height:84px;border-radius:50%;background:radial-gradient(#fff6c8,#ffd23f 60%,rgba(255,210,63,0) 72%);animation:sunp 3s ease-in-out infinite}
 @keyframes sunp{50%{transform:scale(1.12)}}
 .cloud{position:absolute;height:34px;width:110px;border-radius:30px;background:#fff;opacity:.92;filter:drop-shadow(0 6px 0 rgba(30,60,140,.12));animation:cl linear infinite}
@@ -194,29 +191,8 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .cloud::before{width:48px;height:48px;left:14px;top:-22px}.cloud::after{width:60px;height:60px;left:46px;top:-30px}
 .c1{top:20%;animation-duration:19s;left:-140px}.c2{top:34%;transform:scale(.7);animation-duration:27s;animation-delay:-9s;left:-140px}.c3{top:12%;transform:scale(.55);animation-duration:34s;animation-delay:-20s;left:-140px}
 @keyframes cl{to{transform:translateX(calc(100vw + 300px))}}
-.sp-title{position:relative;margin-top:calc(var(--sat) + 9vh);text-align:center;line-height:.95;filter:drop-shadow(0 7px 0 rgba(20,30,80,.35));animation:tin .9s cubic-bezier(.2,1.5,.4,1) both}
-@keyframes tin{from{transform:translateY(-60px) scale(.5);opacity:0}}
-.sp-title b{display:block;font-size:clamp(40px,13vw,64px);font-weight:900;color:#ffd23f;-webkit-text-stroke:7px #2b3b7a;paint-order:stroke fill;letter-spacing:1px}
-.sp-title i{display:block;font-style:normal;font-size:clamp(26px,8.5vw,42px);font-weight:900;color:#fff;-webkit-text-stroke:7px #2b3b7a;paint-order:stroke fill}
-.sp-title small{display:inline-block;margin-top:8px;background:linear-gradient(#ffe27a,#e8a017);color:#6a4300;font-weight:900;font-size:14px;padding:3px 14px;border-radius:12px;border:3px solid #fff;letter-spacing:3px}
-.sp-scene{position:absolute;left:0;right:0;bottom:24%;height:190px}
-.sp-road{position:absolute;left:0;right:0;bottom:0;height:46px;background:#5b6478;border-top:6px solid #f4f7fb;box-shadow:0 6px 0 rgba(0,0,0,.2)}
-.sp-road i{position:absolute;left:0;right:0;top:19px;height:6px;background:repeating-linear-gradient(90deg,#ffd45a 0 34px,transparent 34px 68px);animation:road .5s linear infinite}
-@keyframes road{to{background-position:-68px 0}}
-.sp-bus{position:absolute;bottom:20px;left:-300px;width:min(62vw,260px);animation:busin 2.2s cubic-bezier(.2,.85,.25,1) .25s forwards,bob .45s ease-in-out .25s infinite}
-@keyframes busin{to{left:calc(50% - min(31vw,130px))}}
-@keyframes bob{50%{margin-bottom:3px}}
 .whl{transform-box:fill-box;transform-origin:center;animation:spin .35s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.sp-crowd{position:absolute;right:7%;bottom:40px;display:flex;gap:9px;align-items:flex-end}
-.sp-crowd span{width:20px;height:34px;border-radius:10px 10px 6px 6px;background:var(--c);position:relative;animation:wave .7s ease-in-out infinite;border:2px solid rgba(255,255,255,.7)}
-.sp-crowd span::before{content:"";position:absolute;left:1px;top:-17px;width:14px;height:14px;border-radius:50%;background:#ffe3c4;border:2px solid rgba(0,0,0,.2)}
-.sp-crowd span:nth-child(2n){animation-delay:.18s}.sp-crowd span:nth-child(3n){animation-delay:.35s}
-@keyframes wave{50%{transform:translateY(-7px)}}
-.sp-load{position:absolute;left:0;right:0;bottom:calc(var(--sab) + 9%);display:flex;flex-direction:column;align-items:center;gap:7px}
-.sp-bar{width:min(72vw,300px);height:20px;border-radius:12px;background:rgba(20,30,80,.5);border:4px solid #fff;overflow:hidden;box-shadow:0 5px 0 rgba(20,30,80,.25)}
-.sp-bar i{display:block;height:100%;width:0;background:repeating-linear-gradient(45deg,#7dff9b 0 12px,#2fd06a 12px 24px);background-size:34px 34px;animation:stripe .6s linear infinite;transition:width .25s}
-@keyframes stripe{to{background-position:34px 0}}
 #spTxt{font-size:16px;text-shadow:0 2px 0 rgba(0,0,0,.35)}
 #spPct{font-weight:900;opacity:.9;text-shadow:0 1px 0 rgba(0,0,0,.35)}
 /* hamle/yıldız çipi ve son park yeri uyarısı */
@@ -240,3 +216,13 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .revive-pips{display:flex;justify-content:center;gap:8px;margin:6px 0}.revive-pips i{width:26px;height:26px;border-radius:50%;background:#52e27d;border:3px solid #fff;box-shadow:0 2px 0 rgba(0,0,0,.25)}.revive-pips i.used{background:#c4cbe6}
 @media (max-height:640px){:root{--top-h:calc(var(--sat) + 104px);--bot-h:calc(var(--sab) + 84px)}}
 @media (min-width:700px){#app{max-width:520px;left:50%;transform:translateX(-50%);box-shadow:0 0 60px rgba(0,0,0,.5)}body{background:#0e1636}}
+
+#loading{position:absolute;inset:0;z-index:100;background:#2a8cf0 url(splash.jpg) center/cover no-repeat;overflow:hidden;display:flex;flex-direction:column;align-items:center;color:#fff;transition:opacity .55s,transform .55s}
+#loading.gone{opacity:0;pointer-events:none;transform:scale(1.05)}
+.sp-fade{position:absolute;left:0;right:0;bottom:0;height:26%;background:linear-gradient(transparent,rgba(12,22,60,.72))}
+.sp-load{position:absolute;left:0;right:0;bottom:calc(var(--sab) + 7%);display:flex;flex-direction:column;align-items:center;gap:7px}
+.sp-bar{width:min(66vw,300px);height:24px;border-radius:14px;background:#14204f;border:4px solid #fff;overflow:hidden;box-shadow:0 5px 0 rgba(10,20,70,.35)}
+.sp-bar i{display:block;height:100%;width:0;border-radius:10px;background:repeating-linear-gradient(45deg,#ffd23f 0 12px,#ffb800 12px 24px);background-size:34px 34px;animation:spstripe .6s linear infinite;transition:width .25s}
+@keyframes spstripe{to{background-position:34px 0}}
+.sp-load b{font-size:16px;text-shadow:0 2px 0 rgba(10,20,70,.7)}
+.sp-load small{font-size:13px;font-weight:800;opacity:.9;text-shadow:0 2px 0 rgba(10,20,70,.7)}
