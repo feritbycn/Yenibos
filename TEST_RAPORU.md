@@ -70,3 +70,8 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Geri alma hatası düzeltmesi geri alınıp test koşulunca test BAŞARISIZ oluyor (testin hatayı gerçekten yakaladığı doğrulandı).
 - Test EDİLMEDİ: gerçek AdMob/Play Billing, gerçek cihazda dokunuş hissi ve performans, dengesi gerçek oyuncuyla; kanatlı uçuş efekti yalnızca ekran görüntüsüyle görüldü.
 - Bilinen sınırlar: yolcu penceresi (ilk 3 yolcu) aynı; farklı tahta şekilleri (yıldız/spiral gibi serbest açılı yerleşim) yapılmadı; seviyeler VIP olmadan yeniden üretildi ve zorluğu oyuncuyla denenmedi.
+
+## v5 testleri
+- `tools/e2e5.mjs` (23): kalkış sırasında yolcu binmeye devam ediyor (27 olay), yürüyen yolcu varken kalkış başlıyor; 2x video düğmesi ilk sırada ve ödül reklam bitince; zorunlu reklam aralığı 4/5; 2x izlenince, reklamsız alınınca, ilk seviyelerde atlanıyor; reklamsız teklifi IAP yokken çıkmıyor, sahte satın alma yok; bildirimler sahte eklentiyle planlanıyor/iptal ediliyor.
+- `tools/test-notifyplan.mjs` (7): bildirim zamanları.
+- Cihazda doğrulanmadı: gerçek bildirim, AdMob interstitial, Play satın alma.

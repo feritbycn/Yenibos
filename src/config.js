@@ -26,9 +26,17 @@ export const ADS = {
     // Google'ın herkese açık TEST kimlikleri. Yayın öncesi kendi kimliklerinizle değiştirin.
     appIdAndroid: 'ca-app-pub-3940256099942544~3347511713',
     rewardedUnitAndroid: 'ca-app-pub-3940256099942544/5224354917',
+    interstitialUnitAndroid: 'ca-app-pub-3940256099942544/1033173712',   // Google test kimliği; yayında kendininkiyle değiştir
   },
   testDurationMs: 3000,
 };
+
+/** Zorunlu (ödülsüz) geçiş reklamı: her 4-5 seviyede bir, seviye sonunda. İlk seviyelerde ve reklamsız satın alınınca yok. */
+export const INTERSTITIAL = { startAfterLevel: 3, every: [4, 5], minGapMs: 120000 };
+/** Reklamsız satın alma teklifi: seyrek (her N seviyede bir, en çok M kez, aynı gün tekrar yok). Yalnızca Play Faturalandırma gerçekten hazırsa gösterilir. */
+export const REMOVE_ADS = { productId: 'remove_ads', everyLevels: 10, firstAfterLevel: 8, maxOffers: 5 };
+/** Yerel bildirimler (cihaz saatiyle). */
+export const NOTIFY = { dailyHour: 19, dailyMinute: 30, comebackDays: [3, 7, 14], comebackHour: 12, smallIcon: 'ic_stat_bus' };
 
 export const PRICES = {
   undo: 60, hint: 40, recall: 80, call: 120, moves: 70, time: 70, extraSlot: 150, vip: 100, shuffle: 90,

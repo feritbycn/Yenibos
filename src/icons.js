@@ -7,6 +7,7 @@ const P = {
   recall: '<path d="M5 12h12M9 7.5 4.5 12 9 16.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><rect x="18" y="6" width="2.6" height="12" rx="1.3" fill="currentColor"/>',
   call: '<circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="7.2" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   convert: '<path d="M6 8h11l-3-3M18 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  bell: '<path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5v3.2L5 15.5v1h14v-1l-1.5-3.3V9A5.5 5.5 0 0 0 12 3.5Zm-2 15h4a2 2 0 0 1-4 0Z" fill="currentColor"/>',
   shuffle: '<path d="M3.5 7h3.2c3.6 0 4.6 10 8.3 10h3.5M3.5 17h3.2c1.6 0 2.7-1.9 3.6-4M13.6 9.2C14.4 8 15.4 7 17 7h2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.8 4.2 20 7l-3.2 2.8M16.8 14.2 20 17l-3.2 2.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
   vip: '<path d="M3 8.5l4.2 3.8L12 5l4.8 7.3L21 8.5 19.2 18.5H4.8z" fill="currentColor"/><rect x="5" y="19.5" width="14" height="2" rx="1" fill="currentColor"/>',
   plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>',

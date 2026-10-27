@@ -21,6 +21,8 @@ export const defaults = () => ({
   best: {},
   lb: { week: '', levels: {} },
   inboxDone: [],
+  ads: { since: 0, nextAt: 4, last: 0, removed: false, offers: 0, offerDay: '', offerLevel: 0 },
+  notif: { enabled: false, asked: false },
   stats: { passengers: 0, levels: 0, vip: 0, coinsEarned: 0, buses: 0, slots: 0, threeStars: 0, ads: 0 },
 });
 
@@ -56,6 +58,8 @@ export function sanitize(raw) {
   out.best = {}; for (const k of Object.keys(obj(r.best))) { const n = +k; if (Number.isInteger(n) && n > 0) out.best[n] = num(r.best[k], 0, 0, 99999); }
   const lbv = obj(r.lb); out.lb = { week: str(lbv.week, ''), levels: {} }; for (const k of Object.keys(obj(lbv.levels))) out.lb.levels[k] = num(lbv.levels[k], 0, 0, 99999);
   out.inboxDone = Array.isArray(r.inboxDone) ? r.inboxDone.filter((x) => typeof x === 'string').slice(-200) : [];
+  const ad = obj(r.ads); out.ads = { since: num(ad.since, 0, 0, 999), nextAt: num(ad.nextAt, 4, 3, 9), last: num(ad.last, 0, 0, 4e12), removed: ad.removed === true, offers: num(ad.offers, 0, 0, 99), offerDay: str(ad.offerDay, ''), offerLevel: num(ad.offerLevel, 0, 0, 1e6) };
+  const nf = obj(r.notif); out.notif = { enabled: nf.enabled === true, asked: nf.asked === true };
   const st = obj(r.stats); out.stats = {}; for (const k of Object.keys(d.stats)) out.stats[k] = num(st[k], 0);
   return out;
 }

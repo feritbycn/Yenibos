@@ -24,6 +24,7 @@ function splashTick() {
   else setTimeout(() => document.getElementById('loading')?.classList.add('gone'), MIN_SPLASH ? 250 : 0);
 }
 if (MIN_SPLASH) splashTick(); else { if (bar) bar.style.width = '100%'; setTimeout(() => document.getElementById('loading')?.classList.add('gone'), 400); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) game.notifier.reschedule(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.phase === 'play' && !game.paused && !game.ui.hasModal) game.pause(); });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 // Android geri tuşu (Capacitor)

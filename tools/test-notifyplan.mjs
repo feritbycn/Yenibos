@@ -1,0 +1,15 @@
+import { planNotifications } from '../src/notifyplan.js';
+let f = 0; const ok = (n, c) => { console.log((c ? 'PASS ' : 'FAIL ') + n); if (!c) f++; };
+const now = new Date(2026, 9, 27, 10, 0, 0);
+let p = planNotifications({ now, claimedToday: false });
+ok('4 bildirim', p.length === 4);
+ok('Ödül alınmadıysa bugün 19:30', p[0].at.getDate() === 27 && p[0].at.getHours() === 19 && p[0].at.getMinutes() === 30);
+p = planNotifications({ now, claimedToday: true });
+ok('Ödül alındıysa yarın 19:30', p[0].at.getDate() === 28 && p[0].at.getHours() === 19);
+p = planNotifications({ now: new Date(2026, 9, 27, 21, 0), claimedToday: false });
+ok('Saat geçtiyse yarın', p[0].at.getDate() === 28);
+p = planNotifications({ now, claimedToday: false });
+ok('Geri dönüş: +3/+7/+14 gün 12:00', [3, 7, 14].every((d, i) => p[i + 1].at.getDate() === (27 + d > 31 ? 27 + d - 31 : 27 + d) && p[i + 1].at.getHours() === 12));
+ok('Benzersiz id', new Set(p.map((x) => x.id)).size === p.length);
+ok('Metinler dolu', p.every((x) => x.title && x.body));
+process.exit(f ? 1 : 0);

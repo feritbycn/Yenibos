@@ -10,7 +10,8 @@ import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
+import { PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
+import { Notifier } from './notify.js';
 import { shuffleLayout } from './levelgen.js';
 import { makeRng } from './rng.js';
 import { createBackend } from './backend.js';
@@ -30,7 +31,7 @@ export class Game {
     this.backend = createBackend(this.save);
     this.sound = new Sound();
     this.ui = new UI(this);
-    this.ads = new AdService(this.ui); this.iap = new IapService(this);
+    this.ads = new AdService(this.ui); this.iap = new IapService(this); this.notifier = new Notifier(this); this.skipInterstitial = false;
     const d = this.save.data;
     this.sound.setSound(d.settings.sound); this.sound.setVibe(d.settings.vibe);
     this.scene = new GameScene($('#stage'), { quality: d.settings.quality, preserve: !!opts.preserve });
@@ -235,7 +236,42 @@ export class Game {
   }
 
   restart() { this.ui.closeAll(); const d = this.save.data; d.temp = { level: this.levelN, slots: [], conv: 0, vipCalls: 0 }; this.startLevel(this.levelN); }
-  nextLevel() { this.startLevel(this.levelN + 1); }
+  /** Seviye sonu: 4-5 seviyede bir zorunlu (ödülsüz) reklam; arada bir (seyrek) reklamsız teklifi. */
+  async nextLevel() {
+    try { await this.levelBreak(); } catch { /* reklam/teklif hatası oyunu durdurmaz */ }
+    this.startLevel(this.levelN + 1);
+  }
+  adDue(now = Date.now()) {
+    const a = this.save.data.ads;
+    return !a.removed && ADS.mode !== 'off' && this.levelN >= INTERSTITIAL.startAfterLevel && a.since >= a.nextAt && now - a.last >= INTERSTITIAL.minGapMs && !this.skipInterstitial;
+  }
+  removeAdsOfferDue() {
+    const a = this.save.data.ads, n = this.levelN;
+    return !a.removed && this.iap.available() && n >= REMOVE_ADS.firstAfterLevel && a.offers < REMOVE_ADS.maxOffers && n - a.offerLevel >= REMOVE_ADS.everyLevels && a.offerDay !== dayKey();
+  }
+  async levelBreak() {
+    const a = this.save.data.ads, nf = this.save.data.notif;
+    if (!nf.asked && this.levelN >= 2 && this.notifier.available()) {
+      nf.asked = true; this.save.save(true);
+      if (await this.ui.confirm({ title: 'Günlük ödül hatırlatması', text: 'Günlük ödülünü almanı ve uzun süre ara verirsen oyuna dönmeni hatırlatan nadir bildirimler gönderelim mi? Ayarlardan istediğin zaman kapatabilirsin.', yes: 'Evet, hatırlat', no: 'Hayır' })) await this.notifier.enable();
+      return 'notif';
+    }
+    if (this.adDue()) {
+      this.adOpen = true; const shown = await this.ads.showInterstitial('level-break'); this.adOpen = false;
+      a.since = 0; a.nextAt = INTERSTITIAL.every[0] + Math.floor(Math.random() * (INTERSTITIAL.every[1] - INTERSTITIAL.every[0] + 1)); if (shown) a.last = Date.now();
+      this.save.save(true); return 'ad';
+    }
+    if (this.removeAdsOfferDue()) {
+      a.offers++; a.offerDay = dayKey(); a.offerLevel = this.levelN; this.save.save(true);
+      await this.ui.removeAdsOffer(); return 'offer';
+    }
+    return null;
+  }
+  async buyRemoveAds() {
+    const r = await this.iap.buyRemoveAds();
+    this.ui.toast(r.ok ? 'Reklamlar kaldırıldı. Teşekkürler!' : r.reason === 'unavailable' ? 'Gerçek parayla satın alma bu sürümde kapalı.' : 'Satın alma tamamlanmadı.', r.ok ? 'good' : 'bad');
+    return r.ok;
+  }
   pause() { this.paused = true; this.ui.pause(); }
   resume() { this.paused = false; }
 
@@ -363,6 +399,7 @@ export class Game {
     d.best[n] = d.best[n] ? Math.min(d.best[n], this.moveCount) : this.moveCount;
     d.level = Math.max(d.level, n + 1);
     d.stats.levels++; if (stars === 3) d.stats.threeStars++;
+    d.ads.since++; this.skipInterstitial = false;
     let rewardPower = null;
     if (n % 5 === 0) { rewardPower = ['undo', 'hint', 'recall', 'call', 'extraSlot'][(n / 5) % 5]; d.powerups[rewardPower]++; }
     if (n === 1) d.tutorial.l1 = true; if (n === 2) d.tutorial.l2 = true;
@@ -415,7 +452,7 @@ export class Game {
     if (r.ok) { this.ui.setCoins(this.save.data.coins, true); this.sound.play('coin'); this.ui.toast(`+${pk.coins} jeton!`, 'good'); return true; }
     this.ui.toast(r.reason === 'unavailable' ? 'Gerçek parayla satın alma bu sürümde kapalı.' : 'Satın alma tamamlanmadı, jeton verilmedi.', 'bad'); return false;
   }
-  async doubleReward(coins) { if (!(await this.requestAd('double-reward'))) return false; this.addCoins(coins, false); this.sound.play('coin'); return true; }
+  async doubleReward(coins) { if (!(await this.requestAd('double-reward'))) return false; this.skipInterstitial = true; this.addCoins(coins, false); this.sound.play('coin'); return true; }
 
   // günlük / görev / başarı
   canClaimDaily() { Clock.tick(); return Clock.trusted() && dayKey() > this.save.data.daily.lastClaim; }

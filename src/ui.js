@@ -65,13 +65,13 @@ export class UI {
   coinPos() { const r = ($('#hudCoins') || $('#menuCoins'))?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.bottom + 6 } : { x: 200, y: 80 }; }
 
   // ---------------------------------------------------------------- reklam
-  testAd(ms, placement) {
+  testAd(ms, placement, opt = {}) {
     return new Promise((res) => {
       let done = false, ok = false;
       const c = this.modal({
-        title: 'Ödüllü Reklam', head: 'purple', closable: true,
-        body: `<div class="adbox"><span class="testtag">TEST REKLAMI</span><div class="bigad">Örnek Reklam<small>Geliştirme modu: gerçek reklam değildir. Yayın sürümünde AdMob kullanılır.</small></div><div class="pb"><i></i></div><p class="adt">Ödül için bekle: <b class="sec">${Math.ceil(ms / 1000)}</b> sn</p></div>`,
-        foot: `<button class="btn green" data-act="claim" disabled>${ico('check', 22)} Ödülü Al</button>`,
+        title: opt.interstitial ? 'Reklam' : 'Ödüllü Reklam', head: 'purple', closable: !!opt.interstitial ? false : true,
+        body: `<div class="adbox"><span class="testtag">TEST REKLAMI</span><div class="bigad">Örnek Reklam<small>Geliştirme modu: gerçek reklam değildir. Yayın sürümünde AdMob kullanılır.</small></div><div class="pb"><i></i></div><p class="adt">${opt.interstitial ? 'Reklam bitince devam edebilirsin' : 'Ödül için bekle'}: <b class="sec">${Math.ceil(ms / 1000)}</b> sn</p></div>`,
+        foot: `<button class="btn green" data-act="claim" disabled>${ico('check', 22)} ${opt.interstitial ? 'Devam Et' : 'Ödülü Al'}</button>`,
         onClose: () => { if (!done) { done = true; res(ok); } },
       });
       const bar = c.q('.pb i'), sec = c.q('.sec'); const t0 = performance.now();
@@ -82,6 +82,18 @@ export class UI {
       this.onAct(c, { claim: () => { if (ok) { clearInterval(iv); done = true; c.close(); res(true); } } });
       const origClose = c.close; c.close = () => { clearInterval(iv); origClose(); };
       void placement;
+    });
+  }
+
+  /** Seyrek gösterilen reklamsız teklifi (yalnızca gerçek satın alma hazırsa çağrılır). */
+  removeAdsOffer() {
+    return new Promise((res) => {
+      const c = this.modal({
+        title: 'Reklamsız Oyna', head: 'blue', closable: true, onClose: () => res(),
+        body: `<p style="text-align:center">Seviye aralarındaki zorunlu reklamları tek seferlik satın almayla kaldır. İsteğe bağlı ödüllü videolar yine açık kalır.</p>`,
+        foot: `<button class="btn green" data-act="buy">Reklamları Kaldır</button><button class="btn gray" data-act="later">Şimdi değil</button>`,
+      });
+      this.onAct(c, { buy: async () => { if (await this.G.buyRemoveAds()) c.close(); }, later: () => c.close() });
     });
   }
 
@@ -299,6 +311,7 @@ export class UI {
         <div class="switch"><span class="lab">${ico('sound', 24)} Ses efektleri</span><button class="tg ${s.sound ? 'on' : ''}" data-act="sound" aria-label="Ses"></button></div>
         <div class="switch"><span class="lab">${ico('vibe', 24)} Titreşim</span><button class="tg ${s.vibe ? 'on' : ''}" data-act="vibe" aria-label="Titreşim"></button></div>
         <div class="switch" style="display:block"><div class="lab" style="margin-bottom:8px">Grafik kalitesi</div><div class="seg">${[['low', 'Düşük'], ['medium', 'Orta'], ['high', 'Yüksek']].map(([k, n]) => `<button class="${s.quality === k ? 'on' : ''}" data-act="q" data-id="${k}">${n}</button>`).join('')}</div></div>
+        <div class="switch"><span class="lab">${ico('bell', 24)} Bildirimler (günlük ödül hatırlatması)</span><button class="tg ${G.save.data.notif.enabled ? 'on' : ''}" data-act="notif" aria-label="Bildirimler"></button></div>
         <button class="btn blue" data-act="tut" style="margin-bottom:9px">Eğitimi tekrar göster</button>
         ${inGame ? '' : `<button class="btn red" data-act="reset">İlerlemeyi sıfırla</button>`}
         <p style="margin-top:12px;font-size:12px;color:#58649a;text-align:center">Reklam modu: <b>${ADS.mode === 'test' ? 'TEST (geliştirme)' : ADS.mode === 'admob' ? 'AdMob' : 'Kapalı'}</b><br>Tüm 3D modeller ve sesler kodla üretilmiştir (özgün).</p>`);
@@ -308,6 +321,12 @@ export class UI {
       sound: () => { G.save.data.settings.sound = !G.save.data.settings.sound; G.applySettings(); render(); },
       vibe: () => { G.save.data.settings.vibe = !G.save.data.settings.vibe; G.applySettings(); render(); },
       q: (ds) => { G.save.data.settings.quality = ds.id; G.applySettings(); render(); },
+      notif: async () => {
+        if (G.save.data.notif.enabled) { await G.notifier.disable(); }
+        else if (!G.notifier.available()) { this.toast('Bildirimler yalnızca Android uygulamasında çalışır.', 'bad'); }
+        else if (!(await G.notifier.enable())) this.toast('Bildirim izni verilmedi.', 'bad');
+        render();
+      },
       tut: () => { G.resetTutorial(); this.toast('Eğitim bir sonraki 1. ve 2. seviyede tekrar gösterilecek.', 'good'); },
       reset: async () => { if (await this.confirm({ title: 'Emin misin?', text: 'Tüm ilerleme, jetonlar ve açılan öğeler silinecek.', yes: 'Sıfırla', danger: true })) { G.resetProgress(); c.close(); } },
     });
@@ -329,7 +348,7 @@ export class UI {
     const c = this.modal({
       title: 'SEVİYE TAMAMLANDI!', head: 'green', closable: false,
       body: `<div class="stars">${[1, 2, 3].map((i) => ico('star', 58, i <= stars ? 'on' : '')).join('')}</div><div class="reward">${ico('coin', 40)}<span id="rcount">+0</span></div>${rewardPower ? `<p style="text-align:center;color:#2f6bff">Bonus: +1 ${POWER_INFO[rewardPower].name}!</p>` : ''}<p style="text-align:center;color:#58649a;margin-bottom:4px">Seviye ${level} geçildi · <b>${moves}</b> hamle (en az ${needed} gerekir${best && best < moves ? `, rekorun ${best}` : ''})</p><p style="text-align:center;font-size:12.5px;color:#58649a">${stars === 3 ? 'Mükemmel! Neredeyse hatasız.' : stars === 2 ? `3 yıldız için en fazla ${t3} fazla hamle yapmalıydın (sen ${extra}).` : `2 yıldız için en fazla ${t2} fazla hamle gerekir (sen ${extra}).`} Haftalık puan: +${score}</p>`,
-      foot: `<button class="btn green" data-act="next">${ico('play', 22)} Sonraki Seviye</button>${canDouble ? `<button class="btn gold" data-act="double">${ico('ad', 22)} Ödülü 2 katla <small>(isteğe bağlı)</small></button>` : ''}<button class="btn gray" data-act="menu">${ico('home', 20)} Ana Menü</button>`,
+      foot: `${canDouble ? `<button class="btn gold dbl" data-act="double">${ico('ad', 22)} Video izle: 2x kazan <small>(+${coins} → +${coins * 2})</small></button>` : ''}<button class="btn ${canDouble ? 'blue' : 'green'}" data-act="next">${ico('play', 22)} Sonraki Seviye</button><button class="btn gray" data-act="menu">${ico('home', 20)} Ana Menü</button>`,
     });
     c.el.querySelectorAll('.stars .ico').forEach((e, i) => { e.style.animationDelay = (i * 0.25) + 's'; });
     const el = c.q('#rcount'); const t0 = performance.now(); let shown = 0;
@@ -338,7 +357,7 @@ export class UI {
     this.onAct(c, {
       next: () => { c.close(); G.nextLevel(); },
       menu: () => { c.close(); G.goMenu(); },
-      double: async (ds, btn) => { if (await G.doubleReward(coins)) { btn.remove(); el.textContent = '+' + (coins * 2); } },
+      double: async (ds, btn) => { if (await G.doubleReward(coins)) { btn.remove(); el.textContent = '+' + (coins * 2); this.toast(`2x ödül alındı: +${coins} jeton daha`, 'good'); } },
     });
   }
 

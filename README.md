@@ -107,3 +107,13 @@ Testler: `npm test`, `node tools/test-server.mjs`, `node tools/e2e.mjs`, `e2e2.m
 - **Hata düzeltmesi**: reklamla/geri alma ile konum yüklendiğinde park etmiş otobüsler "varmamış" sayılıp yolcu almıyordu; düzeltildi (e2e4 testi bu hatayı yeniden üretir ve doğrular).
 - Otobüs tasarım çeşitliliği: varsayılan stilde boyuna göre minibüs, van, şehir otobüsü, konfor otobüsü ve taksi karışık gelir. Satın alınabilir yeni stiller: Ekspres, Panoramik Turist, Yarış (kart görselleri `www/img/`).
 - Yeni logo ve açılış görseli (`www/splash.jpg`, Android ikonları), gerçek ilerleyen yükleme çubuğu.
+
+## v5: Beklemeden biniş, reklam akışı, bildirimler
+
+- **Biniş:** Sırası gelen yolcu, rengi uyan park etmiş otobüs varsa; başka yolcunun binişini, ya da bir otobüsün kalkışını beklemez (`scene.director`). Kalkış da yürüyen yolcuları beklemez.
+- **Seviye sonu:** "Video izle: 2x kazan" birincil/önerilen düğmedir; ödül yalnızca reklam gerçekten bitince verilir.
+- **Zorunlu reklam:** 4. seviyeden sonra her 4–5 seviyede bir (ödülsüz, `INTERSTITIAL` ayarı), en az 2 dk arayla; 2x video izlenen seviyede ve reklamsız alınmışsa atlanır. Test modunda açıkça "TEST REKLAMI" etiketlidir; AdMob modunda Google test interstitial kimliği kullanılır (yayında kendi kimliğini yaz).
+- **Reklamsız teklifi:** Yalnızca gerçek satın alma (Play Faturalandırma) hazırsa, en erken 8. seviyeden sonra, en az 10 seviye ve 1 gün arayla, en çok 5 kez gösterilir. `remove_ads` ürünü Play Console'da tek seferlik ürün olarak tanımlanmalıdır. Satın alma sonucu gelmeden reklam kapanmaz.
+- **Bildirimler:** `@capacitor/local-notifications`. 2. seviyeden sonra bir kez nazik izin sorusu; Ayarlar'dan açılıp kapanır. Uygulama arka plana gidince plan yenilenir: günlük ödül hatırlatması (ödül alınmadıysa bugün, yoksa yarın 19:30) ve 3/7/14 gün sonra 12:00'de davet bildirimleri. Oyuna girince eski plan yenilenir.
+
+**Gerçek cihazda test edilmedi:** bildirimlerin gelmesi, gerçek AdMob geçiş reklamı, gerçek reklamsız satın alma. Bunlar sahte eklentilerle mantık düzeyinde test edildi (`tools/e2e5.mjs`, `tools/test-notifyplan.mjs`).

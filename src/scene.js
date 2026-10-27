@@ -669,8 +669,10 @@ export class GameScene {
       const b = s.buses[vis.id];
       if (b.st === 'parked' && b.arrived && !vis.departing && ((vis.vcount >= b.seats && b.boarded >= b.seats) || (this.forceDepart && vis.vcount >= b.boarded))) { ready = vis; break; }
     }
-    if (ready && !this.stripBusy && this.walkers.size === 0) { this.startDeparture(ready); return; }
-    if (!ready && !this.stripBusy && this.boardCd <= 0) {
+    // Kalkış, başkalarının binişini beklemez (o otobüse yürüyen yolcu kalmadı: boarded >= seats ve vcount >= seats)
+    if (ready && !this.stripBusy) this.startDeparture(ready);
+    // Sırası gelen yolcu, aynı renkte park etmiş otobüs varsa, kalkışı/diğer yolcuları beklemeden biner
+    if (this.boardCd <= 0) {
       const tgt = E.boardTarget(s);
       if (tgt) {
         const r = E.boardStep(s);

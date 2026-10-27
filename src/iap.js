@@ -4,7 +4,7 @@
 //                yüklüyse purchaseProduct çağrılır; yalnızca eklenti başarıyla döndürürse jeton verilir.
 // UYARI: Bu yol gerçek cihazda/Play Console'da TEST EDİLMEDİ (README → "Gerçek parayla satın alma").
 //        Yayında satın alımı sunucu tarafında doğrulamanız önerilir.
-import { IAP } from './config.js';
+import { IAP, REMOVE_ADS } from './config.js';
 
 export class IapService {
   constructor(G) { this.G = G; }
@@ -26,5 +26,19 @@ export class IapService {
     } catch (e) {
       return { ok: false, reason: 'cancelled', error: String(e?.message || e) };
     }
+  }
+  /** Reklamsız satın alma (tek seferlik). Yalnızca eklenti başarıyla döndürürse reklamlar kapanır. */
+  async buyRemoveAds() {
+    if (!this.available()) return { ok: false, reason: 'unavailable' };
+    try {
+      const NP = window.Capacitor.Plugins.NativePurchases;
+      const res = await NP.purchaseProduct({ productIdentifier: REMOVE_ADS.productId, productType: 'inapp', quantity: 1 });
+      const txId = String(res?.transactionId || res?.orderId || '');
+      if (!txId) return { ok: false, reason: 'no-transaction' };
+      const d = this.G.save.data; d.iap ||= { tx: [] };
+      if (!d.iap.tx.includes(txId)) d.iap.tx.push(txId);
+      d.ads.removed = true; this.G.save.save(true);
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: 'cancelled', error: String(e?.message || e) }; }
   }
 }

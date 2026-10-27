@@ -36,6 +36,19 @@ export class AdService {
       return { ok: false, reason: 'error', error: String(e?.message || e) };
     }
   }
+  /** Zorunlu geçiş reklamı (ödül yok). Gerçek AdMob yoksa/hata olursa oyun devam eder. */
+  async showInterstitial(placement) {
+    if (!this.available()) return false;
+    try {
+      if (ADS.mode === 'test') { await this.ui.testAd(ADS.testDurationMs, placement, { interstitial: true }); this.shown++; return true; }
+      const AdMob = window.Capacitor.Plugins.AdMob;
+      if (!this.inited) { await AdMob.initialize({ initializeForTesting: false }); this.inited = true; }
+      const dismissed = new Promise((res) => AdMob.addListener('onInterstitialAdDismissed', () => res()).catch(() => res()));
+      await AdMob.prepareInterstitial({ adId: ADS.admob.interstitialUnitAndroid });
+      await AdMob.showInterstitial();
+      await dismissed; this.shown++; return true;
+    } catch { return false; }
+  }
   /** Bir ödül jetonunu yalnızca bir kez tüketir (çift ödül engeli). */
   consume(token) { if (!token || this.consumed.has(token)) return false; this.consumed.add(token); return true; }
 }

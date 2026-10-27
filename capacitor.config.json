@@ -3,6 +3,16 @@
   "appName": "Bus Puzzle Deluxe",
   "webDir": "www",
   "backgroundColor": "#5fb3ff",
-  "android": { "allowMixedContent": false },
-  "server": { "androidScheme": "https" }
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_bus",
+      "iconColor": "#2F6BFF"
+    }
+  }
 }
