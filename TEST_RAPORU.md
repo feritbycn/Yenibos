@@ -37,6 +37,12 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Regresyon: `npm test` 21/21, `e2e` 18/18, `e2e2` 26/26 (40 seviye gerçek oyunda kazanıldı).
 - **Dikkat:** 36, 39 ve 40. seviyelerin ilk aşamasında rastgele oyun kazanma oranı ≈ %0 (çözülebilir ama çok zor); zorluk dengesi gerçek oyuncuyla denenmedi.
 
+### 4. tur değişiklikleri — doğrulama
+- **Eğitim yalnızca 1. seviyede**; VIP tanıtımı ilk VIP'li seviyede **bir kez** açılıyor, yeniden başlatınca açılmıyor (e2e). Park yeri teklifi sadeleştirildi: iki büyük düğme (jeton / ücretsiz reklam) + isteğe bağlı kalıcı alan.
+- **Peş peşe otobüs:** yoldayken ikinci otobüse dokunmak çalışıyor, iki otobüs aynı anda yolda ve sorunsuz park ediyor (e2e). Aynı yönde gidenler takip mesafesi koruyor. Karşılıklı yönlerdeki otobüslerin kısa süre üst üste geçmesi görsel olarak mümkün.
+- **Kapı penceresi (ilk 3 yolcu):** motor testleri (pencere içi biner, pencere dışı binmez, sarı+kırmızı yan yana ikisi de dolar). **Önemli bulgu:** kapı kuralı her zaman oyunu kolaylaştırmaz; bir otobüsün hangi yolcuyla dolacağını değiştirdiği için küçük bir otobüs boş kalıp park yeri işgal edebiliyor (40. seviye 1. aşamada yakalandı). Bu yüzden **çözücü motorla birebir aynı kurala yeniden yazıldı** ve 40 seviye tekrar üretilip doğrulandı. 41+ seviyeler yine yalnızca tanık sırası tekrarıyla doğrulanıyor.
+- Regresyon: `npm test` 23/23, `e2e` 18/18, `e2e2` 26/26 (40 seviye oynanarak kazanıldı).
+
 ### Testlerin bulduğu ve düzelttiği hatalar
 - Kayıt temizleme (`sanitize`) varsayılan nesneyi aliaslıyordu → yeniden açılışta `stats`/`powerups` boşalıyordu. Düzeltildi, testle doğrulandı.
 - Varış olayı hiç tetiklenmiyordu, `hidden` özniteliğini CSS eziyordu, iç mekân opak çiziliyordu vb. (geliştirme sırasında düzeltildi).
@@ -47,7 +53,7 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - **Gerçek AdMob doğrulanmadı.** `ads.js` AdMob yolu yazıldı fakat eklenti kurulmadı/çalıştırılmadı. Varsayılan "test" modu açıkça etiketli sahte geliştirme reklamıdır, gerçek reklam değildir.
 - **Gerçek parayla satın alma (IAP) yok.** Mağaza yalnızca oyun içi jetonla çalışır; "Premium" yalnızca jetonla alınan kalıcı park yeridir.
 - **Seviye içi durum kaydedilmiyor:** uygulama seviye ortasında kapanırsa seviye baştan başlar (ilerleme, jeton, satın almalar kaydedilir).
-- **37–40. seviyeler çok zor** (rastgele oynayarak kazanma oranı ≈ %0,8); çözülebilirlikleri doğrulandı ama zorluk dengesi gerçek oyuncuyla denenmedi.
+- Zorluk dengesi gerçek oyuncuyla denenmedi; kapı kuralı oyunu kolaylaştırdı (rastgele oyunla kazanma oranı arttı), seviyeler bu kurala göre yeniden üretildi. 36–40. seviyeler hâlâ en zorlar.
 - Seviyeler 41+ çözücüyle değil, yalnızca tanık sırası tekrarıyla doğrulanıyor.
 - Modeller prosedürel (düşük poligon); özel sanatçı üretimi varlıklar ve gerçek ses dosyaları yok (sesler WebAudio ile sentezlendi).
 - Uygulama ikonu / açılış ekranı Capacitor varsayılanıdır, özelleştirilmedi.

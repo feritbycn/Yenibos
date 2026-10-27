@@ -21,4 +21,4 @@ document.addEventListener('backbutton', () => {
 
 // test/ekran görüntüsü için: ?start=N seviyeyi doğrudan başlatır (eğitim bayrakları açık sayılır)
 const st = params.get('start');
-if (st) setTimeout(() => { const t = game.save.data.tutorial; t.l1 = t.l2 = true; game.ui.closeAll(); game.startLevel(+st); }, 700);
+if (st) setTimeout(() => { const t = game.save.data.tutorial; t.l1 = t.l2 = t.vip = true; game.ui.closeAll(); game.startLevel(+st); }, 700);

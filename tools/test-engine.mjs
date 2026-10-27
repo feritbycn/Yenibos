@@ -39,10 +39,18 @@ const mk = (buses, queue, o = {}) => makeState({ w: 5, h: 5, buses, queue }, o);
   const r = tap(s, 0); t('Engelli otobüs hareket etmez (blocked)', !r.ok && r.reason === 'blocked' && r.blockers.includes(1));
   const r2 = tap(s, 1); t('Yolu açık otobüs park alanına gider', r2.ok && s.buses[1].st === 'parked');
 }
-{ // katı renk eşleşmesi + sıra
+{ // kapı penceresi (ilk 3 yolcu) + pencere dışı yolcu binemez
   const s = mk([{ c: 0, l: 1, d: 'R', x: 3, y: 0 }], [1, 0, 0]);
   tap(s, 0); settle(s);
-  t('Yanlış renkli baştaki yolcu binmez (katı sıra)', s.qi === 0 && s.buses[0].boarded === 0);
+  t('Kapıdaki (ilk 3) yolcu, öndeki başka renk olsa da kendi renginde otobüse biner', s.qi === 2 && s.buses[0].st === 'gone' && s.queue[s.qi] === 1);
+  const s2 = mk([{ c: 0, l: 1, d: 'R', x: 3, y: 0 }], [1, 1, 1, 0, 0]);
+  tap(s2, 0); settle(s2);
+  t('Kapı penceresi dışındaki (4.) yolcu binemez', s2.qi === 0 && s2.buses[0].boarded === 0);
+}
+{ // sarı + kırmızı yan yana: iki otobüs de aynı anda yolcu alır
+  const s = mk([{ c: 2, l: 1, d: 'R', x: 3, y: 0 }, { c: 1, l: 1, d: 'R', x: 3, y: 1 }], [2, 1, 2, 1]);
+  tap(s, 0); tap(s, 1); settle(s);
+  t('Sarı ve kırmızı yan yana: iki otobüs de dolup kalkar (4 yolcu)', s.qi === 4 && s.buses[0].st === 'gone' && s.buses[1].st === 'gone');
 }
 { // kapasite ve kalkış
   const s = mk([{ c: 0, l: 1, d: 'R', x: 3, y: 0 }], [0, 0, 0]);

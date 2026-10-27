@@ -1,5 +1,5 @@
 // Saf bulmaca motoru (render'dan bağımsız). Hem oyun hem çözücü/test aynı kuralları kullanır.
-import { SEATS_PER_CELL, VIP_COLOR, VIP_LEN, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE } from './config.js';
+import { SEATS_PER_CELL, VIP_COLOR, VIP_LEN, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE, QUEUE_WINDOW } from './config.js';
 
 export const DIRS = {
   U: { x: 0, y: -1, horiz: false },
@@ -24,7 +24,7 @@ export function makeState(stage, opts = {}) {
     queue: stage.queue.slice(), qi: 0,
     slotOpen, slots: new Array(SLOTS_TOTAL).fill(null), vipSlot: null,
     moves: 0, moveLimit: opts.moveLimit ?? null,
-    boardedTotal: 0,
+    boardedTotal: 0, win: opts.window ?? QUEUE_WINDOW,
   };
 }
 
@@ -115,30 +115,39 @@ export function markArrived(s, id) { const b = s.buses[id]; if (b) b.arrived = t
 
 export function headColor(s) { return s.qi < s.queue.length ? s.queue[s.qi] : null; }
 
-/** Sıradaki yolcunun binebileceği otobüsü bulur (varmış olmalı). */
-export function boardTarget(s) {
-  const c = headColor(s);
-  if (c === null) return null;
-  for (let i = 0; i < SLOTS_TOTAL; i++) {
-    const id = s.slots[i];
-    if (id === null) continue;
-    const b = s.buses[id];
-    if (b.arrived && b.color === c && b.boarded < b.seats) return b;
+/**
+ * Binecek yolcuyu ve otobüsü seçer. Kapıdaki ilk QUEUE_WINDOW yolcudan (önce en öndeki) herhangi biri,
+ * kendi renginde, varmış ve yeri olan bir otobüse binebilir. Hiçbiri binemiyorsa en öndeki yolcu boş VIP'e biner (joker).
+ * @returns {{bus:object, k:number}|null} k: yolcunun kuyruktaki ön-ofseti (0 = en öndeki)
+ */
+export function boardPick(s) {
+  const n = Math.min(s.win ?? QUEUE_WINDOW, s.queue.length - s.qi);
+  for (let k = 0; k < n; k++) {
+    const c = s.queue[s.qi + k];
+    for (let i = 0; i < SLOTS_TOTAL; i++) {
+      const id = s.slots[i];
+      if (id === null) continue;
+      const b = s.buses[id];
+      if (b.arrived && b.color === c && b.boarded < b.seats) return { bus: b, k };
+    }
   }
-  if (s.vipSlot !== null) {
+  if (n > 0 && s.vipSlot !== null) {
     const b = s.buses[s.vipSlot];
-    if (b.arrived && b.boarded < b.seats) return b;
+    if (b.arrived && b.boarded < b.seats) return { bus: b, k: 0 };
   }
   return null;
 }
+export function boardTarget(s) { const r = boardPick(s); return r ? r.bus : null; }
 
-/** Tek yolcuyu bindirir. {bus, color, full} döner ya da null. */
+/** Tek yolcuyu bindirir. {bus, color, full, from} döner ya da null. Penceredeki yolcu öne alınarak kuyruk sırası güncellenir. */
 export function boardStep(s) {
-  const b = boardTarget(s);
-  if (!b) return null;
+  const r = boardPick(s);
+  if (!r) return null;
+  const { bus: b, k } = r;
+  if (k > 0) { const [c] = s.queue.splice(s.qi + k, 1); s.queue.splice(s.qi, 0, c); }
   const color = s.queue[s.qi];
   s.qi++; b.boarded++; s.boardedTotal++;
-  return { bus: b, color, full: b.boarded >= b.seats };
+  return { bus: b, color, full: b.boarded >= b.seats, from: k };
 }
 
 export function depart(s, id) {

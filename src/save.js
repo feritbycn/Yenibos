@@ -38,7 +38,7 @@ export function sanitize(raw) {
   const pu = obj(r.powerups); out.powerups = {};
   for (const k of Object.keys(d.powerups)) out.powerups[k] = num(pu[k], d.powerups[k], 0, 999);
   const t = obj(r.temp); out.temp = { level: num(t.level, 0), slots: Array.isArray(t.slots) ? t.slots.filter((x) => Number.isInteger(x) && x >= 0 && x < 7) : [], conv: num(t.conv, 0, 0, 99), vipCalls: num(t.vipCalls, 0, 0, 99) };
-  const tu = obj(r.tutorial); out.tutorial = { l1: !!tu.l1, l2: !!tu.l2, enabled: tu.enabled !== false };
+  const tu = obj(r.tutorial); out.tutorial = { l1: !!tu.l1, l2: !!tu.l2, vip: !!tu.vip, enabled: tu.enabled !== false };
   const se = obj(r.settings); out.settings = { sound: se.sound !== false, vibe: se.vibe !== false, quality: ['low', 'medium', 'high'].includes(se.quality) ? se.quality : 'high' };
   const da = obj(r.daily); out.daily = { lastClaim: str(da.lastClaim, ''), streak: num(da.streak, 0, 0, 7) };
   const qu = obj(r.quests); out.quests = { date: str(qu.date, ''), list: Array.isArray(qu.list) ? qu.list.filter((q) => q && typeof q.id === 'string').slice(0, 6) : [], progress: obj(qu.progress), claimed: obj(qu.claimed) };

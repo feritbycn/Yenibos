@@ -134,8 +134,8 @@ export class Game {
     this.refreshHud();
     const tutOn = d.tutorial.enabled;
     if (n === 1 && tutOn && !d.tutorial.l1) this.tut.start(1);
-    else if (n === 2 && tutOn && !d.tutorial.l2) this.tut.start(2);
     else this.tut.stop();
+    this.maybeVipIntro();
     this.save.save();
   }
 
@@ -150,6 +150,16 @@ export class Game {
     this.scene.forceDepart = false;
     this.scene.loadStage(state, d.temp.slots);
     this.refreshHud();
+  }
+
+  /** VIP otobüs ilk kez bir seviyede göründüğünde, yalnızca BİR kez kısa tanıtım. (Eğitim sadece 1. seviyededir.) */
+  maybeVipIntro() {
+    const d = this.save.data; if (d.tutorial.vip || !d.tutorial.enabled || this.tut.active) return;
+    if (!this.lvl.stages[this.stageIdx].buses.some((b) => b.v)) return;
+    setTimeout(() => {
+      if (d.tutorial.vip || this.phase !== 'play' || this.ui.hasModal || this.paused || this.tut.active) return;
+      d.tutorial.vip = true; this.save.save(true); this.ui.vipPreview();
+    }, 1000);
   }
 
   restart() { this.ui.closeAll(); const d = this.save.data; d.temp = { level: this.levelN, slots: [], conv: 0, vipCalls: 0 }; this.startLevel(this.levelN); }
@@ -176,7 +186,6 @@ export class Game {
     if (this.mode === 'convert') { this.openConvert(id); return; }
     if (this.mode === 'call') { this.openCall(id); return; }
     if (this.mode === 'recall') return;
-    if (this.scene.isTraveling()) { this.queueTap(id); return; }
     const s = this.state; const snap = E.clone(s);
     const r = E.tap(s, id);
     this.scene.clearGlows();
@@ -332,7 +341,7 @@ export class Game {
   claimAch(id) { const d = this.save.data; const a = ACHIEVEMENTS.find((x) => x.id === id); if (!a || d.ach.claimed[id] || (d.stats[a.stat] || 0) < a.goal) return; d.ach.claimed[id] = true; this.addCoins(a.reward, false); this.sound.play('coin'); this.save.save(true); this.ui.renderMenu(); }
 
   applySettings() { const s = this.save.data.settings; this.sound.setSound(s.sound); this.sound.setVibe(s.vibe); this.scene.setQuality(s.quality); this.save.save(true); }
-  resetTutorial() { const t = this.save.data.tutorial; t.l1 = false; t.l2 = false; t.enabled = true; this.save.save(true); }
+  resetTutorial() { const t = this.save.data.tutorial; t.l1 = false; t.l2 = false; t.vip = false; t.enabled = true; this.save.save(true); }
   resetProgress() { this.save.reset(); this.sound.setSound(true); this.goMenu(); this.ui.toast('İlerleme sıfırlandı.'); }
 
   // ---------------------------------------------------------------- güçlendiriciler

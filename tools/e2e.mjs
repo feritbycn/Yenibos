@@ -57,21 +57,19 @@ check('Seviye 1 tamamlandı (sonuç ekranı)', s.phase === 'ended' && s.modals =
 await ff(3); await shot('09_l1_result');
 check('Seviye 2 açıldı + jeton ödülü', s.level === 2 && s.coins > coins1, `level=${s.level} coins=${s.coins}`);
 await pg.click('[data-act=next]'); await pg.waitForTimeout(600); await ff(0.5);
-s = await state(); check('Seviye 2 başladı (eğitim)', s.tut === 'say', JSON.stringify(s));
-await shot('10_l2_start');
-await pg.click('.tut-bubble [data-t=ok]'); await ff(0.4);
-const sol = await ev(() => window.__game.lvl.stages[0].solution.slice(0, 3));
-await shot('11_l2_tap1'); await realTap(sol[0]); await waitIdle(); await shot('12_l2_after1');
-s = await state(); check('L2 adım: ikinci otobüs', s.tut === 'tap', JSON.stringify(s));
-await realTap(sol[1]); await waitIdle();
-s = await state(); check('L2 park yeri açıklaması', s.tut === 'say', JSON.stringify(s)); await shot('13_l2_slots');
-await pg.click('.tut-bubble [data-t=ok]'); await ff(0.4);
-s = await state(); check('L2 ek yer tanıtımı', s.tut === 'slot', JSON.stringify(s)); await shot('14_l2_slot_intro');
-await pg.click('.tut-bubble [data-t=skip]'); await ff(0.5);
-s = await state(); check('L2 VIP önizleme modalı', s.modals === 1, JSON.stringify(s)); await pg.waitForTimeout(600); await shot('15_l2_vip_preview');
+s = await state(); check('Seviye 2 başladı, EĞİTİM YOK (eğitim yalnızca 1. seviyede)', s.tut === null && s.phase === 'play', JSON.stringify(s));
+await pg.waitForTimeout(1600);
+s = await state(); check('VIP tanıtımı ilk VIP seviyesinde bir kez açılıyor', s.modals === 1 && await ev(() => window.__game.save.data.tutorial.vip === true), JSON.stringify(s)); await shot('15_l2_vip_preview');
 await pg.click('[data-act=ok]'); await ff(0.4);
-s = await state(); check('Eğitim bitti, serbest oyun', s.tut === null && s.phase === 'play', JSON.stringify(s));
-await shot('16_l2_free');
+await ev(() => window.__game.restart()); await pg.waitForTimeout(1800);
+s = await state(); check('VIP tanıtımı ikinci kez açılmıyor (tek gösterim)', s.modals === 0 && s.tut === null, JSON.stringify(s));
+// peş peşe gönderme: iki otobüs beklemeden art arda
+const sol = await ev(() => window.__game.lvl.stages[0].solution.slice(0, 3));
+const two = await ev((sol) => { const g = window.__game; g.handleTap(sol[0]); g.handleTap(sol[1]); return [g.state.buses[sol[0]].st, g.state.buses[sol[1]].st]; }, sol);
+check('Otobüsler peş peşe gönderilebiliyor (yoldayken ikincisine de dokunulabilir)', two.every((x) => x === 'parked' || x === 'gone'), JSON.stringify(two));
+await ff(0.3); const trav = await ev(() => window.__game.scene.isTraveling()); check('İki otobüs aynı anda yolda', trav === true);
+await shot('16_l2_convoy');
+s = await waitIdle(); check('Peş peşe giden otobüsler sorunsuz park etti', s.parked + s.gone >= 2 && s.phase === 'play', JSON.stringify(s));
 
 console.log(JSON.stringify({ pass: results.filter((r) => r.ok).length, fail: results.filter((r) => !r.ok).length, errors: errors.length }));
 fs.writeFileSync(`${OUT}/results.json`, JSON.stringify({ results, errors }, null, 1));

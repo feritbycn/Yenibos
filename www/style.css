@@ -14,6 +14,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 #stage{position:absolute;left:0;right:0;top:var(--top-h);bottom:var(--bot-h);transition:none}
 .menu-mode #stage{top:0;bottom:0}
 .label-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.qsign{position:absolute;left:0;top:0;min-width:52px;padding:4px 8px 5px;border-radius:12px;background:linear-gradient(#34406f,#222a52);border:3px solid #ffd45a;box-shadow:0 4px 0 rgba(0,0,0,.3);color:#fff;text-align:center;line-height:1;will-change:transform;pointer-events:none}.qsign b{display:block;font:900 22px/1 inherit}.qsign span{display:block;font:800 11px/1.1 inherit;margin-top:2px;opacity:.9}
 .seat-badge{position:absolute;left:0;top:0;min-width:28px;height:24px;border-radius:12px;font:900 15px/1 inherit;display:flex;align-items:center;justify-content:center;border:2.5px solid #fff;padding:0 7px;box-shadow:0 3px 0 rgba(0,0,0,.25);text-shadow:0 1px 0 rgba(0,0,0,.25);will-change:transform}
 #hud{position:absolute;inset:0;pointer-events:none;z-index:10}
 #hud[hidden]{display:none}

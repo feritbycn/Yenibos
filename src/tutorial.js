@@ -1,4 +1,4 @@
-// Eğitim durum makinesi: 1. seviye (hareket + eşleştirme) ve 2. seviye (park alanı, ek yer, VIP).
+// Eğitim durum makinesi: yalnızca 1. seviye (hareket + eşleştirme).
 // Parmak, gerçek oyun nesnesinin ekran konumunu her karede izler (kamera hareket etse de doğru yerde kalır).
 import { ico } from './icons.js';
 import * as E from './engine.js';
@@ -22,19 +22,6 @@ export class Tutorial {
         { kind: 'tap', bus: 1, text: 'Şimdi mavi otobüsün yolu açık. Sürükle!' },
         { kind: 'idle', text: 'Yolcular yürüyerek biniyor…' },
         { kind: 'tap', bus: 2, text: 'Son otobüs! Hepsini taşı.' },
-        { kind: 'end' },
-      ];
-    } else {
-      const vipId = st.buses.find((b) => b.vip)?.id;
-      this.steps = [
-        { kind: 'say', pos: 'mid', text: 'Bu seviyede daha fazla araç ve sınırlı park yeri var. Yolu açık otobüslerle başla!', ok: 'Tamam' },
-        { kind: 'tap', bus: sol[0], text: 'Parmağın gösterdiği otobüsü sürükle.' },
-        { kind: 'idle', text: 'Güzel! Yolcular biniyor.' },
-        { kind: 'tap', bus: sol[1], text: 'Sıradaki otobüs de hazır!' },
-        { kind: 'idle', text: '' },
-        { kind: 'say', pos: 'low', text: 'Park yerleri sınırlıdır! Hepsi dolarsa otobüs çıkaramazsın.', ok: 'Anladım', focus: 'slots' },
-        { kind: 'slot', text: 'Yer kalmazsa isteğe bağlı reklam izleyerek ek park yeri açabilirsin. Zorunlu değildir!' },
-        { kind: 'vip', bus: vipId },
         { kind: 'end' },
       ];
     }

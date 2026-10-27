@@ -4,7 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { buildBus, buildPassenger, buildLamp, buildTree, buildBush, buildBench, setBusPassengers, recolorBus, hexFor, PARK_SCALE, busLength, glowTexture } from './models.js';
 import * as E from './engine.js';
 import { FX } from './fx.js';
-import { SLOTS_TOTAL, VIP_COLOR } from './config.js';
+import { SLOTS_TOTAL, VIP_COLOR, QUEUE_WINDOW } from './config.js';
 
 // ---- Yerleşim sabitleri (dünya birimi) ----
 const SLOT_SP = 1.05, SLOT_Z = -5.2, SLOT_L = 3.35, SLOT_W = 0.92;
@@ -144,6 +144,20 @@ export class GameScene {
     const qFloor = new THREE.Mesh(this.roundedPlate(qW - 0.1, qZf - qZb, 0.15), new THREE.MeshStandardMaterial({ color: 0xcfdbe9, roughness: 0.8 }));
     qFloor.position.set(0, 0.02, (qZf + qZb) / 2); qFloor.receiveShadow = true; s.add(qFloor);
     this.queueBack = qZb;
+    // KAPI: ilk QUEUE_WINDOW yolcu (kapıdakiler) aynı anda uygun otobüse binebilir; zemin işaretiyle belirgin
+    {
+      const gw = QUEUE_WINDOW * SPC + 0.16, gd = ROWSP + 0.12;
+      const tex = canvasTex(256, 96, (g, w, h) => {
+        const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(255,214,90,.85)'); gr.addColorStop(1, 'rgba(255,170,40,.85)');
+        g.fillStyle = gr; g.beginPath(); g.roundRect(6, 6, w - 12, h - 12, 22); g.fill();
+        g.lineWidth = 6; g.strokeStyle = '#fff'; g.setLineDash([18, 10]); g.stroke();
+        g.setLineDash([]); g.fillStyle = 'rgba(120,60,0,.75)'; g.font = '900 30px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText('KAPI  \u25BC', w / 2, h / 2 + 1);
+      });
+      const gate = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+      gate.rotation.x = -Math.PI / 2; gate.position.set(((QUEUE_WINDOW - 1) / 2 - (COLS - 1) / 2) * SPC, 0.045, QZ0); gate.renderOrder = 2;
+      s.add(gate); this.gate = gate;
+    }
     // dekor
     for (const [x, z] of [[-6.2, -2.8], [6.2, -2.8]]) { const l = buildLamp(); l.position.set(x, 0, z); if (x > 0) l.scale.x = -1; s.add(l); }
     for (const [x, z] of [[-5.9, -6.0], [5.9, -6.0], [-6.6, -9.5], [6.6, -9.5]]) { const b = buildBush(); b.position.set(x, 0, z); s.add(b); }
@@ -306,8 +320,8 @@ export class GameScene {
     return { x: (col - (COLS - 1) / 2) * SPC, z: QZ0 - row * ROWSP };
   }
 
-  spawnPassenger(idx, instant) {
-    const color = this.state.queue[idx];
+  spawnPassenger(idx, instant, colorOverride) {
+    const color = colorOverride ?? this.state.queue[idx];
     const g = buildPassenger(color, this.hexOf, (idx * 7 + (idx >> 2)) % 4);
     g.traverse((o) => { if (o.isMesh) o.castShadow = this.quality !== 'low'; });
     const rel = idx - this.state.qi; const p = this.queuePos(rel);
@@ -360,11 +374,27 @@ export class GameScene {
     let target = vmax;
     const hold = t.s > t.finalStart - 0.4 && this.slotHold[t.slot];
     if (hold) target = 0;
+    // peş peşe giden otobüsler: aynı yönde önündeki otobüse çarpmadan takip mesafesi koru
+    let follow = Infinity;
+    if (t.dir) for (const o of this.busVis.values()) {
+      if (o === vis || !o.traveling || !o.travel) continue;
+      const dx = o.g.position.x - g.position.x, dz = o.g.position.z - g.position.z; const dist = Math.hypot(dx, dz);
+      if (dist > 3.4 || dist < 1e-4) continue;
+      const ahead = (dx * t.dir.x + dz * t.dir.z) / dist;
+      const same = o.travel.dir ? (o.travel.dir.x * t.dir.x + o.travel.dir.z * t.dir.z) : 1;
+      if (ahead > 0.55 && same > 0.3) follow = Math.min(follow, dist);
+    }
+    t.stall = (t.stall || 0);
+    if (follow < 3.0 && t.stall < 1.2) {
+      const f = follow < 1.9 ? 0 : (follow - 1.9) / 1.1; target = Math.min(target, vmax * f);
+      if (target < 0.3) t.stall += dt; else t.stall = Math.max(0, t.stall - dt);
+    } else t.stall = Math.max(0, t.stall - dt * 0.5);
     target = Math.min(target, Math.sqrt(2 * 14 * Math.max(0, rem)) + 0.8);
     t.v += Math.sign(target - t.v) * Math.min(Math.abs(target - t.v), acc * dt);
     if (hold && t.s >= t.finalStart - 0.4 + 0.02) { t.v = 0; }
     const ds = t.v * dt; t.s = Math.min(t.total, t.s + ds);
     const sp = samplePath(t.poly, t.L, t.s);
+    { const dl = Math.hypot(sp.dx, sp.dz) || 1; t.dir = { x: sp.dx / dl, z: sp.dz / dl }; }
     g.position.x = sp.x; g.position.z = sp.z;
     if (g.userData.summonY !== undefined) g.position.y = 0;
     const want = Math.atan2(-sp.dx, -sp.dz);
@@ -438,10 +468,15 @@ export class GameScene {
 
   // yolcu yürüyüşü: sıradaki yolcu hedef otobüse
   startBoardWalk(r) {
-    const s = this.state; const idx = s.qi - 1;                 // boardStep qi'yi artırdı
-    let p = this.passengers.get(idx);
-    if (!p) p = this.spawnPassenger(idx, true);
-    this.passengers.delete(idx);
+    const s = this.state; const base = s.qi - 1;                // boardStep qi'yi artırdı
+    const k = r.from || 0;                                       // penceredeki yolcu öne alınmış olabilir
+    let p = this.passengers.get(base + k);
+    if (!p) p = this.spawnPassenger(base + k, true, r.color);
+    this.passengers.delete(base + k);
+    for (let j = k - 1; j >= 0; j--) {                           // öndekiler bir sıra geri kayar
+      const v = this.passengers.get(base + j); this.passengers.delete(base + j);
+      if (v) { this.passengers.set(base + j + 1, v); v.userData.idx = base + j + 1; }
+    }
     const vis = this.busVis.get(r.bus.id); const b = r.bus;
     const bx = vis.g.position.x;
     const frontZ = SLOT_Z - (busLength(b.len) * (PARK_SCALE[b.len] || 0.75)) / 2;
@@ -785,6 +820,12 @@ export class GameScene {
   updateLabels() {
     const s = this.state; if (!s) return;
     const rect = { w: this.container.clientWidth, h: this.container.clientHeight };
+    if (this.gate) this.gate.material.opacity = 0.82 + Math.sin(this.time * 3) * 0.18;
+    // "Kalan" tabelası: sırada kalan yolcu sayısı (kuyruğun solunda)
+    if (!this.qsign) { this.qsign = document.createElement('div'); this.qsign.className = 'qsign'; this.qsign.innerHTML = '<b></b><span>Kalan</span>'; this.labelLayer.appendChild(this.qsign); }
+    const left = s.queue.length - s.qi;
+    if (this.qsign._v !== left) { this.qsign.firstChild.textContent = left; this.qsign._v = left; }
+    { const v = this.project(-COLS * SPC / 2 - 0.95, 0.4, QZ0 - 0.1); this.qsign.style.transform = `translate(${v.x}px, ${v.y}px) translate(-50%,-50%)`; }
     for (const vis of this.busVis.values()) {
       const b = s.buses[vis.id];
       if (b.st !== 'parked' || !vis.parked || vis.departing) { this.removeLabel(vis.id); continue; }

@@ -335,14 +335,13 @@ export class UI {
 
   // ---------------------------------------------------------------- oyun içi teklifler
   slotOffer(onDone) {
-    const G = this.G; const d = G.save.data; const permN = d.perm.slots;
+    const G = this.G; const d = G.save.data; const permN = d.perm.slots; const adOk = ADS.mode !== 'off';
     const c = this.modal({
-      title: 'Ek Park Yeri', head: 'green', onClose: onDone,
-      body: `<p>Park yerleri doldukça otobüs çıkaramazsın. <b>Bu seviye için</b> geçici bir yer açabilir ya da <b>kalıcı Premium</b> yer satın alabilirsin.</p>`,
-      foot: `<button class="btn gold" data-act="ad">${ico('ad', 22)} Reklam izle <small>(sadece bu seviye)</small></button>
-        <button class="btn orange" data-act="coin">${ico('coin', 22)} ${PRICES.extraSlot} jeton <small>(sadece bu seviye)</small></button>
-        ${d.powerups.extraSlot > 0 ? `<button class="btn blue" data-act="item">${ico('plus', 22)} Envanterden kullan (${d.powerups.extraSlot})</button>` : ''}
-        ${permN < 3 ? `<button class="btn purple" data-act="perm">${ico('vip', 22)} Kalıcı Premium alan · ${PRICES.permSlot[permN]} 🪙 <small>(${permN + 1}/3)</small></button>` : ''}`,
+      title: 'Ekstra Park Yeri', head: 'blue', onClose: onDone,
+      body: `<div style="display:flex;justify-content:center;align-items:center;gap:14px;margin:4px 0 10px"><div style="width:44px;height:44px;border-radius:12px;background:#2f6bff;color:#fff;font:900 28px/44px inherit;text-align:center;box-shadow:0 3px 0 rgba(0,0,0,.25)">P</div><div style="width:46px;height:84px;border-radius:12px;border:4px dashed #8b97b8;background:#aab4cc"></div><b style="font-size:38px;color:#ffb800;text-shadow:0 2px 0 rgba(0,0,0,.2)">+1</b></div><p style="text-align:center;font-weight:900;margin:0">Oynamaya devam etmek için +1 park yeri al!<br><small style="color:#58649a">Sadece bu seviye için geçerli</small></p>`,
+      foot: `<div style="display:flex;gap:10px;width:100%"><button class="btn orange" style="flex:1" data-act="coin">${ico('coin', 24)} ${PRICES.extraSlot}</button>${adOk ? `<button class="btn green" style="flex:1" data-act="ad">${ico('ad', 24)} ÜCRETSİZ</button>` : ''}</div>
+        ${d.powerups.extraSlot > 0 ? `<button class="btn blue" data-act="item">${ico('plus', 20)} Envanterden kullan (${d.powerups.extraSlot})</button>` : ''}
+        ${permN < 3 ? `<button class="btn purple" data-act="perm">${ico('vip', 20)} Kalıcı Premium alan · ${PRICES.permSlot[permN]} <small>(${permN + 1}/3)</small></button>` : ''}`,
     });
     this.onAct(c, {
       ad: async () => { if (await G.unlockSlot('ad')) c.close(); }, coin: async () => { if (await G.unlockSlot('coin')) c.close(); },

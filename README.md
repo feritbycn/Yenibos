@@ -8,7 +8,8 @@ Referans görsellerdeki oyun türünden esinlenilmiştir; modeller, arayüz, sev
 ## Oynanış
 - Üstte yolcu kuyruğu, ortada park alanı, altta bulmaca tahtası.
 - Otobüse dokun veya oku yönünde sürükle. Yol açıksa park alanına gider; yoldaki otobüs engeldir.
-- Yolcular **katı sırayla** (baştaki yolcu) yalnızca **aynı renkli** otobüse biner. Otobüs dolunca kalkar, park yeri boşalır.
+- Yolcular yalnızca **aynı renkli** otobüse biner. Sıranın önündeki **KAPI**'daki ilk 3 yolcu (`QUEUE_WINDOW` = 3, `src/config.js`) uygun otobüs park etmişse aynı anda binebilir; yani sarı ve kırmızı yan yana ise ikisi de kendi otobüsüne biner. Kapı dışındakiler bekler. Otobüs dolunca kalkar, park yeri boşalır. Sahnedeki **Kalan** tabelası sıradaki yolcu sayısını gösterir.
+- Otobüsler **peş peşe** gönderilebilir: açık park yeri varsa beklemeden art arda dokun; otobüsler takip mesafesi koruyarak gider.
 - Park yeri dolarsa kaybedersin. **VIP** (altın) otobüs her renkten yolcu alır, kendi alanına park eder.
 - Güçlendiriciler: Geri Al, İpucu, Geri Çağır, **Çağır** (tahtadan istediğin otobüsü seç, yolu kapalı olsa bile park alanına gelir: stok / reklam / 120 jeton), **Değiştir** (renk değiştir, **koltuk ekle +1** ya da **uzat +2**; reklam veya jeton), VIP çağır; ek hamle/süre; ek park yeri (reklam ya da 150 jeton, sadece o seviye).
 - **Minibüsler:** 6. seviyeden itibaren bazı otobüsler 3 veya 5 koltuklu; "Değiştir" ile koltuk eklenebilir. Kuyruktaki yolcu sayısı koltuklarla birebir eşittir.
@@ -16,7 +17,7 @@ Referans görsellerdeki oyun türünden esinlenilmiştir; modeller, arayüz, sev
 - **Otobüs stilleri:** Şehir, Minibüs, Okul Servisi, Konfor, **Modern** (panoramik cam, LED şerit), **Lüks** (metalik boya, krom detaylar, koyu cam).
 - **Jeton zor kazanılır** (seviye başına ~25–45 jeton); ücretli seçenekler jetonla ya da reklamla alınır.
 - Mağaza (otobüs stilleri, jantlar, VIP kaplamaları, renk paletleri), koleksiyon (dönen 3D önizleme), günlük ödül, günlük görevler, başarımlar.
-- 40 hazır seviye (hepsi çözücüyle doğrulanmış), 41+ sonsuz üretim. 26–30. seviyeler çok aşamalı + süreli. Seviye 1–2 parmaklı eğitim.
+- 40 hazır seviye (hepsi çözücüyle doğrulanmış), 41+ sonsuz üretim. 26–30. seviyeler çok aşamalı + süreli. Parmaklı eğitim yalnızca 1. seviyede; VIP tanıtımı VIP'li ilk seviyede bir kez gösterilir.
 
 ## Geçici / kalıcı park yeri
 - **Reklamla ek park yeri = yalnızca o seviye için geçici.** Kayıtta `temp.slots` olarak ayrı tutulur, sonraki seviyede sıfırlanır.

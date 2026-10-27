@@ -47,3 +47,6 @@ export const IAP = {
     { id: 'c9000', productId: 'coins_9000', coins: 9000, label: 'Hazine' },
   ],
 };
+
+/** Ön sıra penceresi: kuyruğun ilk N yolcusu (kapıdakiler) uygun renkte park etmiş otobüse aynı anda binebilir. */
+export const QUEUE_WINDOW = 3;
