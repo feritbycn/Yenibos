@@ -47,6 +47,7 @@ export const POWER_INFO = {
   undo: { name: 'Geri Al', desc: 'Son hamleyi geri alır.', price: PRICES.undo },
   hint: { name: 'İpucu', desc: 'Bir sonraki doğru otobüsü gösterir.', price: PRICES.hint },
   recall: { name: 'Geri Çağır', desc: 'Park eden otobüsü başlangıç yerine döndürür.', price: PRICES.recall },
+  convert: { name: 'Değiştir', desc: 'Otobüsün rengini değiştirir ya da koltuk ekler / uzatır (seviye başına sınırlı).', price: PRICES.convert },
   call: { name: 'Otobüs Çağır', desc: 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır.', price: PRICES.call },
   extraSlot: { name: 'Ek Park Yeri', desc: 'Bu seviye için bir park yeri açar.', price: PRICES.extraSlot },
   moves: { name: 'Ek Hamle', desc: 'Hamle sınırlı seviyelerde +4 hamle.', price: PRICES.moves },

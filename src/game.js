@@ -107,7 +107,8 @@ export class Game {
 
   // ---------------------------------------------------------------- HUD
   bindHud() {
-    $('#btnPause').innerHTML = ico('pause', 26);
+    $('#btnPause').innerHTML = ico('pause', 26); $('#btnShop').innerHTML = ico('shop', 26);
+    $('#btnShop').addEventListener('click', () => { if (this.phase === 'play' && !this.paused) { this.sound.play('click'); this.ui.shop('power'); } });
     $('#btnPause').addEventListener('click', () => { if (this.phase !== 'play') return; this.sound.play('click'); this.pause(); });
     $('#hudCoins').addEventListener('click', () => { if (this.phase === 'play') { this.sound.play('click'); this.ui.shop('power'); } });
     $('#chipMoves').addEventListener('click', () => this.offerMoves());
@@ -120,7 +121,7 @@ export class Game {
     const d = this.save.data;
     $('#powerBar').innerHTML = POWER_BAR.map(([k, name, ic]) => {
       let cnt = '';
-      if (['undo', 'hint', 'recall', 'call', 'vipcall', 'shuffle'].includes(k)) { const n = d.powerups[k === 'vipcall' ? 'vip' : k]; cnt = `<span class="cnt ${n ? '' : 'zero'}">${n || '+'}</span>`; }
+      if (['undo', 'hint', 'recall', 'call', 'convert', 'vipcall', 'shuffle'].includes(k)) { const n = d.powerups[k === 'vipcall' ? 'vip' : k]; cnt = `<span class="cnt ${n ? '' : 'zero'}">${n || '+'}</span>`; }
       else cnt = `<span class="cnt ad">${ico('ad', 12)}</span>`;
       return `<button class="pw ${k}" data-p="${k}" aria-label="${name}"><span class="btn">${ico(ic, 28)}</span>${cnt}<span>${name}</span></button>`;
     }).join('');
@@ -485,6 +486,20 @@ export class Game {
       || ACHIEVEMENTS.some((a) => (d.stats[a.stat] || 0) >= a.goal && !d.ach.claimed[a.id]);
   }
   claimQuest(id) { const d = this.save.data; const def = questDef(id); if (!def || d.quests.claimed[id] || (d.quests.progress[id] || 0) < def.goal) return; d.quests.claimed[id] = true; this.addCoins(def.reward, false); this.sound.play('coin'); this.save.save(true); this.ui.renderMenu(); }
+  /** Alınabilir (tamamlanmış, alınmamış) görev ('q') ya da başarı ('a') sayısı. */
+  claimableCount(kind) {
+    const d = this.save.data;
+    if (kind === 'q') return d.quests.list.filter((q) => { const def = questDef(q.id); return def && !d.quests.claimed[q.id] && (d.quests.progress[q.id] || 0) >= def.goal; }).length;
+    return ACHIEVEMENTS.filter((a) => !d.ach.claimed[a.id] && (d.stats[a.stat] || 0) >= a.goal).length;
+  }
+  /** Tümünü al: hepsi tek seferde, tek toast. */
+  claimAll(kind) {
+    const d = this.save.data; let sum = 0, n = 0;
+    if (kind === 'q') for (const q of d.quests.list) { const def = questDef(q.id); if (def && !d.quests.claimed[q.id] && (d.quests.progress[q.id] || 0) >= def.goal) { d.quests.claimed[q.id] = true; sum += def.reward; n++; } }
+    else for (const a of ACHIEVEMENTS) if (!d.ach.claimed[a.id] && (d.stats[a.stat] || 0) >= a.goal) { d.ach.claimed[a.id] = true; sum += a.reward; n++; }
+    if (!n) return 0;
+    this.addCoins(sum, false); this.sound.play('coin'); this.save.save(true); this.ui.renderMenu(); this.ui.toast(`${n} ödül alındı: +${sum} jeton`, 'good'); return sum;
+  }
   claimAch(id) { const d = this.save.data; const a = ACHIEVEMENTS.find((x) => x.id === id); if (!a || d.ach.claimed[id] || (d.stats[a.stat] || 0) < a.goal) return; d.ach.claimed[id] = true; this.addCoins(a.reward, false); this.sound.play('coin'); this.save.save(true); this.ui.renderMenu(); }
 
   applySettings() { const s = this.save.data.settings; this.sound.setSound(s.sound); this.sound.setVibe(s.vibe); this.scene.setQuality(s.quality); this.save.save(true); }
@@ -499,7 +514,7 @@ export class Game {
     if (this.mode) this.setMode(null);
     const d = this.save.data;
     const pk = kind === 'vipcall' ? 'vip' : kind;
-    if (['undo', 'hint', 'recall', 'vip', 'shuffle'].includes(pk) && d.powerups[pk] <= 0) { this.ui.powerBuy(pk); return; }
+    if (['undo', 'hint', 'recall', 'call', 'convert', 'vip', 'shuffle'].includes(pk) && d.powerups[pk] <= 0) { this.ui.powerBuy(pk); return; }
     if (this.scene.isBusy() && kind !== 'hint') { this.ui.toast('Animasyon bitsin, sonra dene.'); return; }
     switch (kind) {
       case 'undo': if (this.doUndo()) this.usePower('undo'); break;
@@ -549,6 +564,7 @@ export class Game {
     if (b.vip) { this.ui.toast('VIP otobüsler çağrılamaz; VIP için VIP Çağır\'ı kullan.'); return; }
     if (E.slotFor(s, b) === -1) { this.ui.toast('Park yeri yok! Önce yer aç.', 'bad'); this.sound.play('error'); return; }
     if (this.scene.isBusy()) { this.ui.toast('Animasyon bitsin, sonra dene.'); return; }
+    if (d.powerups.call > 0) { this.callPick(id, 'item'); return; }
     const cname = COLORS[b.color]?.name || '';
     const c = this.ui.modal({
       title: 'Otobüs Çağır', head: 'purple', onClose: () => { if (this.mode === 'call') this.setMode(null); },
@@ -595,13 +611,14 @@ export class Game {
     if (sel.type === 'color') E.convertColor(test, id, sel.v); else if (sel.type === 'seat') E.addSeat(test, id); else E.grow(test, id);
     const chk = solve(test, { useVip: false, maxNodes: 150000 });
     if (!chk.solved && !chk.aborted) { this.ui.toast('Bu dönüşüm seviyeyi çözümsüz yapar, başka seçenek dene.', 'bad'); return false; }
-    if (pay === 'ad') { if (!(await this.requestAd('convert'))) return false; } else if (!this.spendCoins(sel.type === 'seat' ? PRICES.seat : PRICES.convert)) return false;
+    if (pay === 'item') { if (d.powerups.convert <= 0) return false; }
+    else if (pay === 'ad') { if (!(await this.requestAd('convert'))) return false; } else if (!this.spendCoins(sel.type === 'seat' ? PRICES.seat : PRICES.convert)) return false;
     const snap = E.clone(s);
     const r = sel.type === 'color' ? E.convertColor(s, id, sel.v) : sel.type === 'seat' ? E.addSeat(s, id) : E.grow(s, id);
     if (!r.ok) { this.ui.toast('Dönüştürme uygulanamadı.', 'bad'); return false; }
     this.countMove(id); this.snapshots.push(snap);
     if (sel.type === 'color') this.scene.convertFx(id, 'color'); else this.scene.rebuildBus(id);
-    d.temp.conv++; this.assists++; this.save.save(); this.setMode(null); this.ui.toast(sel.type === 'seat' ? 'Koltuk eklendi!' : 'Otobüs dönüştürüldü!', 'good'); return true;
+    if (pay === 'item') d.powerups.convert--; d.temp.conv++; this.assists++; this.renderPowerBar(); this.save.save(); this.setMode(null); this.ui.toast(sel.type === 'seat' ? 'Koltuk eklendi!' : 'Otobüs dönüştürüldü!', 'good'); return true;
   }
   /** VIP: hak varsa otobüs seçme moduna geç (hak yoksa onPower zaten satın alma penceresini açar). */
   startVipMode() {

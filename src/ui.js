@@ -153,7 +153,7 @@ export class UI {
       } else if (tab === 'packs') {
         body = `<p>Jetonla alınan paketler: tek tek almaktan daha ucuz. (Gerçek para ödemesi yok.)</p><div class="list">${PACKS.map((pk) => `<div class="item"><div style="color:#7a4dff">${ico('gift', 34)}</div><div class="t"><b>${pk.name} <span style="color:#2fa84f;font-size:12px">${pk.tag}</span></b><small>${Object.entries(pk.items).map(([k, n]) => `${n}× ${POWER_INFO[k].name}`).join(' · ')}</small></div><button class="btn gold" data-act="buypack" data-id="${pk.id}">${ico('coin', 16)} ${pk.price}</button></div>`).join('')}</div>`;
       } else if (tab === 'power') {
-        body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', extraSlot: 'plus', moves: 'play', time: 'clock', vip: 'vip', shuffle: 'shuffle' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
+        body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', convert: 'convert', extraSlot: 'plus', moves: 'play', time: 'clock', vip: 'vip', shuffle: 'shuffle' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
       } else {
         const n = d.perm.slots;
         body = `<p>Kalıcı park alanları tüm seviyelerde açık kalır. Reklamla açılan alanlar ise yalnızca o seviyede geçerlidir.</p><div class="list">${PRICES.permSlot.map((pr, i) => `<div class="item"><div style="color:${i < n ? '#2fd06a' : '#7a4dff'}">${ico(i < n ? 'check' : 'plus', 34)}</div><div class="t"><b>Kalıcı Park Yeri ${i + 1}/3</b><small>${i < n ? 'Açıldı' : i === n ? 'Sıradaki açılım' : 'Önceki alanı aç'}</small></div>${i < n ? '' : `<button class="btn gold" data-act="permslot" ${i === n ? '' : 'disabled'}>${ico('coin', 16)} ${pr}</button>`}</div>`).join('')}</div>`;
@@ -248,12 +248,14 @@ export class UI {
       const tabs = `<div class="tabs" style="margin:-14px -14px 10px"><button class="tab ${tab === 'daily' ? 'on' : ''}" data-act="tab" data-id="daily">Günlük</button><button class="tab ${tab === 'ach' ? 'on' : ''}" data-act="tab" data-id="ach">Başarılar</button></div>`;
       let list = '';
       if (tab === 'daily') {
-        list = `<div class="list">${d.quests.list.map((q) => {
+        const nq = G.claimableCount('q');
+        list = `${nq ? `<button class="btn gold" data-act="claimall" style="margin-bottom:10px">${ico('gift', 22)} Tümünü al (${nq})</button>` : ''}<div class="list">${d.quests.list.map((q) => {
           const def = questDef(q.id), pr = Math.min(def.goal, d.quests.progress[q.id] || 0), done = pr >= def.goal, cl = d.quests.claimed[q.id];
           return `<div class="item"><div style="color:#2f6bff">${ico('list', 30)}</div><div class="t"><b>${def.text}</b><small>${pr}/${def.goal} · Ödül: ${def.reward} 🪙</small><div class="bar"><i style="width:${(pr / def.goal) * 100}%"></i></div></div>${cl ? `<span style="color:#2fd06a">${ico('check', 28)}</span>` : `<button class="btn ${done ? 'green' : 'gray'}" data-act="claimq" data-id="${q.id}" ${done ? '' : 'disabled'}>Al</button>`}</div>`;
         }).join('')}</div><p style="text-align:center;margin-top:10px;color:#58649a;font-size:13px">Görevler her gün yenilenir.</p>`;
       } else {
-        list = `<div class="list">${ACHIEVEMENTS.map((a) => {
+        const na = G.claimableCount('a');
+        list = `${na ? `<button class="btn gold" data-act="claimall" style="margin-bottom:10px">${ico('gift', 22)} Tümünü al (${na})</button>` : ''}<div class="list">${ACHIEVEMENTS.map((a) => {
           const pr = Math.min(a.goal, d.stats[a.stat] || 0), done = pr >= a.goal, cl = d.ach.claimed[a.id];
           return `<div class="item"><div style="color:#ff9a1f">${ico('star', 30)}</div><div class="t"><b>${a.name}</b><small>${a.text} · ${pr}/${a.goal} · ${a.reward} 🪙</small><div class="bar"><i style="width:${(pr / a.goal) * 100}%"></i></div></div>${cl ? `<span style="color:#2fd06a">${ico('check', 28)}</span>` : `<button class="btn ${done ? 'green' : 'gray'}" data-act="claima" data-id="${a.id}" ${done ? '' : 'disabled'}>Al</button>`}</div>`;
         }).join('')}</div>`;
@@ -261,7 +263,7 @@ export class UI {
       c.setBody(tabs + list);
     };
     render();
-    this.onAct(c, { tab: (ds) => { tab = ds.id; render(); }, claimq: (ds) => { G.claimQuest(ds.id); render(); }, claima: (ds) => { G.claimAch(ds.id); render(); } });
+    this.onAct(c, { tab: (ds) => { tab = ds.id; render(); }, claimq: (ds) => { G.claimQuest(ds.id); render(); }, claima: (ds) => { G.claimAch(ds.id); render(); }, claimall: () => { G.claimAll(tab === 'daily' ? 'q' : 'a'); render(); } });
   }
 
   // ---------------------------------------------------------------- günlük ödül
@@ -430,13 +432,12 @@ export class UI {
         ${busInfo.colors.length ? `<b>Renk (kapasite ${busInfo.seats} sabit)</b><div class="opts" style="margin-top:6px">${colors}</div>` : '<p style="color:#58649a">Kalan yolcu renkleri için başka renk yok.</p>'}
         ${sizeOpts.length ? `<b>Kapasite</b><div class="opts" style="margin-top:6px">${sizeOpts.join('')}</div>` : ''}
         <p style="font-size:12px;color:#58649a">Bu seviyede kalan hak: <b>${busInfo.left}</b></p>`);
-      const price = sel?.type === 'seat' ? PRICES.seat : PRICES.convert;
-      c.setFoot(sel ? `<button class="btn gold" data-act="ad">${ico('ad', 22)} Reklam izle ve uygula</button><button class="btn orange" data-act="coin">${ico('coin', 22)} ${price} jeton ile uygula</button>` : `<button class="btn gray" disabled>Bir seçenek seç</button>`);
+      c.setFoot(sel ? `<button class="btn green" data-act="item">${ico('convert', 22)} Uygula (1 Değiştir hakkı)</button>` : `<button class="btn gray" disabled>Bir seçenek seç</button>`);
     };
     render();
     this.onAct(c, {
       pickc: (ds) => { sel = { type: 'color', v: +ds.v }; render(); }, pickg: () => { sel = { type: 'grow' }; render(); }, picks: () => { sel = { type: 'seat' }; render(); },
-      ad: async () => { if (await G.applyConvert(busInfo.id, sel, 'ad')) c.close(); }, coin: async () => { if (await G.applyConvert(busInfo.id, sel, 'coin')) c.close(); },
+      item: async () => { if (await G.applyConvert(busInfo.id, sel, 'item')) c.close(); },
     });
   }
 }

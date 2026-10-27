@@ -44,7 +44,7 @@ export const PRICES = {
   convert: 100, seat: 60,
 };
 export const CONV_LIMIT = 3;   // seviye başına otobüs değiştirme/koltuk ekleme hakkı
-export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'moves', 'time', 'vip', 'shuffle'];
+export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'convert', 'moves', 'time', 'vip', 'shuffle'];
 /** Jetonla alınan paketler (gerçek para değil). */
 export const PACKS = [
   { id: 'starter', name: 'Başlangıç Paketi', price: 420, items: { undo: 3, hint: 3, shuffle: 2, vip: 2 }, tag: 'Popüler' },

@@ -146,6 +146,24 @@ await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(10); });
 const vs = await ev(() => { const g = window.__game; g.save.data.powerups.vip = 1; g.handleSlotTap('V'); const m = g.mode; g.handleSlotTap('V'); return { m, after: g.mode }; });
 check('VIP alanına dokununca VIP modu açılır, tekrar dokununca kapanır', vs.m === 'vip' && !vs.after, JSON.stringify(vs));
 
+// ---------- 6) Çağır/Değiştir: hak yoksa otobüs seçilmez, satın alma açılır; hak varsa kullanılır. Tümünü al. Oyun içi mağaza.
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(10); g.save.data.coins = 5000; }); await ff(0.5);
+const pw = await ev(() => { const g = window.__game; const d = g.save.data; d.powerups.call = 0; d.powerups.convert = 0; const o = {};
+  g.onPower('call'); o.callMode = g.mode; o.callModal = g.ui.modals.length; g.ui.closeAll();
+  g.onPower('convert'); o.convMode = g.mode; o.convModal = g.ui.modals.length; g.ui.closeAll(); return o; });
+check('Çağır: hak yokken otobüs seçme modu açılmaz, satın alma penceresi açılır', !pw.callMode && pw.callModal === 1, JSON.stringify(pw));
+check('Değiştir: hak yokken seçme modu açılmaz, satın alma penceresi açılır', !pw.convMode && pw.convModal === 1, JSON.stringify(pw));
+const bought = await ev(() => { const g = window.__game; const d = g.save.data; g.buyPower('call'); g.buyPower('convert'); const r = { call: d.powerups.call, conv: d.powerups.convert }; g.onPower('call'); r.mode = g.mode; g.setMode(null); return r; });
+check('Satın alınca hak eklenir; hak varsa seçme modu açılır', bought.call === 1 && bought.conv === 1 && bought.mode === 'call', JSON.stringify(bought));
+const conv = await ev(async () => { const g = window.__game; const d = g.save.data; const s = g.state; const before = d.powerups.convert; let ok = false;
+  for (const b of s.buses.filter((x) => x.st === 'board' && !x.vip)) { for (const c of [...new Set(s.queue.slice(s.qi))].filter((c) => c !== b.color)) { if (await g.applyConvert(b.id, { type: 'color', v: c }, 'item')) { ok = true; break; } } if (!ok && await g.applyConvert(b.id, { type: 'seat' }, 'item')) ok = true; if (!ok && await g.applyConvert(b.id, { type: 'grow' }, 'item')) ok = true; if (ok) break; }
+  return { ok, before, after: d.powerups.convert }; });
+check('Değiştir hakkı kullanılınca 1 azalır', conv.ok === true && conv.after === conv.before - 1, JSON.stringify(conv));
+const ca = await ev(() => { const g = window.__game; const d = g.save.data; g.ui.closeAll(); d.quests.progress = {}; for (const q of d.quests.list) d.quests.progress[q.id] = 1e6; d.quests.claimed = {}; const c0 = d.coins; const n = g.claimableCount('q'); const sum = g.claimAll('q'); return { n, sum, gain: d.coins - c0, left: g.claimableCount('q') }; });
+check('Görevlerde "Tümünü al": hepsi tek seferde alınır', ca.n >= 1 && ca.sum > 0 && ca.gain === ca.sum && ca.left === 0, JSON.stringify(ca));
+const hs = await ev(() => { const g = window.__game; g.ui.closeAll(); document.querySelector('#btnShop').click(); return g.ui.modals.length; });
+check('Oyun ekranında Mağaza düğmesi mağazayı açar', hs === 1);
+await ev(() => window.__game.ui.closeAll());
 check('Konsol hatası yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 const f = results.filter((r) => !r.ok).length; console.log(`\n${results.length - f}/${results.length} geçti`);
 await browser.close(); srv.close(); process.exit(f ? 1 : 0);

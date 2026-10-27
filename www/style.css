@@ -231,3 +231,5 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .bimg{width:100%;max-width:150px;height:62px;object-fit:cover;border-radius:10px;border:2px solid #fff;box-shadow:0 2px 6px rgba(20,30,80,.25)}
 
 .pw>span:last-child{white-space:nowrap;font-size:9.5px;letter-spacing:-.2px}
+.round-btn.shop{background:linear-gradient(#ffd23f,#ff9a1f);color:#6a4300}
+.hud-top .lvl-pill{flex:1;min-width:0}
