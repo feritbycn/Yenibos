@@ -65,6 +65,31 @@ const pr = await ev(() => { const g = window.__game; g.streak = 0; g.lastMoveAt 
   g.clock += 10; g.trackStreak(); out.push(g.streak); return out; });
 check('3 hızlı hamlede "Harika!" yazısı, yavaşlayınca seri sıfırlanır', pr[0] === 1 && pr[1] === 'Harika!' && pr[2] === 1, JSON.stringify(pr));
 
+// ---------- 5) Armalar: satın alınır, kullanılır, "Armasız" ile eski hâle dönülür
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(10); g.save.data.coins = 1000; }); await ff(0.6);
+const countDecals = () => ev(() => { let n = 0; window.__game.scene.busGroup.traverse((o) => { if (o.isMesh && o.material?.map && o.geometry?.type === 'PlaneGeometry' && o.material.transparent && o.renderOrder === 4 && o.material.map.image?.width === 256) n++; }); return n; });
+const emb0 = await countDecals();
+const shopTab = await ev(() => { const g = window.__game; g.ui.shop('emblem'); return { cards: document.querySelectorAll('.modal-bg .card').length, imgs: document.querySelectorAll('.modal-bg .card img').length }; });
+check('Mağazada Armalar sekmesi: Armasız + 5 arma kartı', shopTab.cards === 6 && shopTab.imgs === 5, JSON.stringify(shopTab));
+const bought = await ev(() => { const g = window.__game; const c0 = g.save.data.coins; const ok = g.buyItem('emblem', 'lion'); return { ok, paid: c0 - g.save.data.coins, eq: g.save.data.equipped.emblem, own: g.save.data.owned.emblem }; });
+check('Arma satın alınır (150 jeton) ve kullanıma alınır', bought.ok && bought.paid === 150 && bought.eq === 'lion', JSON.stringify(bought));
+const again = await ev(() => window.__game.buyItem('emblem', 'lion'));
+check('Aynı arma ikinci kez satın alınamaz', again === false);
+await ev(() => { const g = window.__game; g.startLevel(10); }); await ff(0.8);
+const emb1 = await countDecals(); const slotMap = await ev(() => window.__game.scene.slotMeshes[2].material.map === window.__game.scene.slotTexTeam?.lion);
+check('Arma otobüslerde ve park yerinde görünür', emb1 > emb0 && slotMap, JSON.stringify({ emb0, emb1, slotMap }));
+await shot('emblem_game');
+await ev(() => { const g = window.__game; g.equip('emblem', 'none'); g.startLevel(10); }); await ff(0.8);
+const emb2 = await countDecals(); const slotBack = await ev(() => { const s = window.__game.scene; return s.slotMeshes[2].material.map === s.slotTex.openBase; });
+check('"Armasız" seçilince eski görünüme dönülür (armalar ve park yeri dokusu)', emb2 === emb0 && slotBack, JSON.stringify({ emb2, slotBack }));
+const keep = await ev(() => { const d = window.__game.save.data; return { owned: d.owned.emblem.includes('lion'), eq: d.equipped.emblem }; });
+check('Satın alınan arma saklı kalır (tekrar bedava kullanılabilir)', keep.owned && keep.eq === 'none', JSON.stringify(keep));
+const re = await ev(() => { const g = window.__game; g.equip('emblem', 'lion'); return g.save.data.equipped.emblem; });
+check('Satın alınmış armaya ücretsiz geri dönülebilir', re === 'lion');
+await ev(() => window.__game.equip('emblem', 'none'));
+const unowned = await ev(() => { const g = window.__game; g.equip('emblem', 'wolf'); return g.save.data.equipped.emblem; });
+check('Satın alınmamış arma kullanılamaz', unowned === 'none');
+
 check('Konsol hatası yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 const f = results.filter((r) => !r.ok).length; console.log(`\n${results.length - f}/${results.length} geçti`);
 await browser.close(); srv.close(); process.exit(f ? 1 : 0);

@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { buildBus, buildPassenger, buildLamp, buildTree, buildBush, buildBench, setBusPassengers, recolorBus, hexFor, styleFor, PARK_SCALE, busLength, glowTexture } from './models.js';
 import * as E from './engine.js';
 import { FX } from './fx.js';
+import { drawTeamSlot } from './emblems.js';
 import { SLOTS_TOTAL, VIP_COLOR, QUEUE_WINDOW } from './config.js';
 
 // ---- Yerleşim sabitleri (dünya birimi) ----
@@ -60,7 +61,7 @@ export class GameScene {
   constructor(container, opts = {}) {
     this.container = container;
     this.quality = opts.quality || 'high';
-    this.cos = { style: 'city', rim: 'steel', trail: 'dust', palette: 'vivid', vipSkin: 'gold' };
+    this.cos = { style: 'city', rim: 'steel', trail: 'dust', palette: 'vivid', vipSkin: 'gold', emblem: 'none' };
     this.hexOf = hexFor('vivid');
     this.state = null;
     this.tweens = []; this.busVis = new Map(); this.passengers = new Map(); this.walkers = new Set();
@@ -98,7 +99,15 @@ export class GameScene {
     this.resize();
   }
 
-  setCosmetics(c) { Object.assign(this.cos, c); this.hexOf = hexFor(this.cos.palette); }
+  setCosmetics(c) {
+    Object.assign(this.cos, c); this.hexOf = hexFor(this.cos.palette);
+    if (this.slotTex) {                         // takım armalı park yeri dokusu (armasızsa orijinal doku)
+      const old = this.slotTex.open; const em = this.cos.emblem && this.cos.emblem !== 'none' ? this.cos.emblem : null;
+      this.slotTex.openBase ||= old;
+      if (em) { this.slotTexTeam ||= {}; this.slotTexTeam[em] ||= canvasTex(128, 340, (g, w, h) => drawTeamSlot(g, em, w, h)); this.slotTex.open = this.slotTexTeam[em]; } else this.slotTex.open = this.slotTex.openBase;
+      for (const m of this.slotMeshes) if (m.material.map === old && old !== this.slotTex.open) { m.material.map = this.slotTex.open; m.material.needsUpdate = true; }
+    }
+  }
 
   setupLights() {
     const hemi = new THREE.HemisphereLight(0xeef5ff, 0x9fb0cc, 0.55); this.scene.add(hemi);
@@ -256,6 +265,7 @@ export class GameScene {
     this.siren = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xff2030, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
     this.siren.scale.set(1.5, 1.5, 1); this.scene.add(this.siren);
     this.alertSlot = -1;
+    this.setCosmetics({});
   }
 
   /** Park yerinde renkli ışık yanıp söner (yolcu bindi / otobüs doldu). */
@@ -377,7 +387,7 @@ export class GameScene {
 
   makeBusVis(b) {
     const hex = b.vip ? 0 : this.hexOf(b.color);
-    const g = buildBus({ len: b.len, hex, style: styleFor(this.cos.style, b.len, b.id), vip: b.vip, rim: this.cos.rim, vipSkin: this.cos.vipSkin, seats: b.seats });
+    const g = buildBus({ len: b.len, hex, style: styleFor(this.cos.style, b.len, b.id), vip: b.vip, rim: this.cos.rim, vipSkin: this.cos.vipSkin, seats: b.seats, emblem: this.cos.emblem && this.cos.emblem !== 'none' ? this.cos.emblem : null });
     const vis = { id: b.id, g, parts: g.userData.parts, vcount: 0, vcolors: [], traveling: false, departing: false, trailT: 0, dragOff: 0, bounce: 0, dims: g.userData.dims };
     g.traverse((o) => { if (o.isMesh) o.castShadow = o.castShadow || false; });
     this.busGroup.add(g); this.busVis.set(b.id, vis);

@@ -180,6 +180,12 @@ function buildTaxi(o) {
     const arrow = new THREE.Mesh(cached('arrowplane', () => new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: arrowTexture(), transparent: true, depthWrite: false }));
     arrow.rotation.x = -Math.PI / 2; arrow.scale.set(0.42, 0.42, 1); arrow.position.set(0, roofTop + 0.105, -Lz * 0.2 + cz * 0.5); arrow.renderOrder = 3; g.add(arrow); parts.arrow = arrow;
   }
+  if (o.emblem) {                                                    // taksi: çatı rozeti + yan rozetler
+    const e = EMBLEMS.find((x) => x.id === o.emblem);
+    if (e) { const mk = (sz) => new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), new THREE.MeshBasicMaterial({ map: emblemTex(o.emblem), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      const t = mk(0.34); t.rotation.x = -Math.PI / 2; t.position.set(0, roofTop + 0.075, cz); t.renderOrder = 4; g.add(t);
+      for (const sd of [-1, 1]) { const b = mk(0.2); b.rotation.y = sd * Math.PI / 2; b.position.set(sd * (W / 2 - 0.005), y0 + 0.135, Lz * 0.12); b.renderOrder = 4; g.add(b); } }
+  }
   g.userData.parts = parts; g.userData.dims = { Lz, W, roofTop: roofTop + 0.09 };
   return g;
 }

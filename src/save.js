@@ -4,8 +4,8 @@ import { SAVE_KEY } from './config.js';
 export const defaults = () => ({
   v: 1,
   level: 1, completed: {}, coins: 60,
-  owned: { style: ['city'], rim: ['steel'], palette: ['vivid'], trail: ['dust'], vipSkin: ['gold'] },
-  equipped: { style: 'city', rim: 'steel', palette: 'vivid', trail: 'dust', vipSkin: 'gold' },
+  owned: { style: ['city'], rim: ['steel'], palette: ['vivid'], trail: ['dust'], vipSkin: ['gold'], emblem: ['none'] },
+  equipped: { style: 'city', rim: 'steel', palette: 'vivid', trail: 'dust', vipSkin: 'gold', emblem: 'none' },
   perm: { slots: 0 },
   powerups: { undo: 2, hint: 2, recall: 1, call: 1, convert: 1, extraSlot: 1, moves: 1, time: 1, vip: 1, shuffle: 1 },
   temp: { level: 0, slots: [], conv: 0, vipCalls: 0 },

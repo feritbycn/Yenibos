@@ -90,3 +90,11 @@ export function drawTeamSlot(g, id, w, h) {
   g.strokeStyle = e.c1; g.lineWidth = 4; rr(13, 13, w - 26, h - 26, 16); g.stroke();
   g.save(); g.globalAlpha = 0.9; g.translate((w - 96) / 2, (h - 96) / 2); drawEmblem(g, id, 96); g.restore();
 }
+
+const urlCache = new Map();
+/** Mağaza kartı için arma görseli (data URL). */
+export function emblemUrl(id, size = 96) {
+  const k = id + size; if (urlCache.has(k)) return urlCache.get(k);
+  const c = document.createElement('canvas'); c.width = c.height = size; drawEmblem(c.getContext('2d'), id, size);
+  const u = c.toDataURL('image/png'); urlCache.set(k, u); return u;
+}

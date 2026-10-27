@@ -5,6 +5,14 @@ import { Clock } from './time.js';
 import { dayDiffKeys } from './clockmath.js';
 
 export const SHOP = {
+  emblem: [
+    { id: 'none', name: 'Armasız', price: 0, desc: 'Varsayılan görünüm. İstediğin zaman buna dönebilirsin.' },
+    { id: 'lion', name: 'Aslan Arması', price: 150, desc: 'Kırmızı-sarı rozet: çatıda, yanlarda ve park yerinde.' },
+    { id: 'canary', name: 'Kanarya Arması', price: 150, desc: 'Lacivert-sarı rozet.' },
+    { id: 'eagle', name: 'Kartal Arması', price: 150, desc: 'Siyah-beyaz rozet.' },
+    { id: 'bull', name: 'Boğa Arması', price: 150, desc: 'Yeşil-kırmızı rozet.' },
+    { id: 'wolf', name: 'Kurt Arması', price: 150, desc: 'Bordo-açık mavi rozet.' },
+  ],
   style: [
     { id: 'city', name: 'Şehir Otobüsü', price: 0, desc: 'Klasik yuvarlak hatlı şehir otobüsü.' },
     { id: 'mini', name: 'Minibüs', price: 250, desc: 'Küçük, tombul ve sevimli.' },
@@ -41,7 +49,7 @@ export const SHOP = {
   ],
 };
 export const SHOP_TABS = [
-  ['coins', 'Jeton'], ['packs', 'Paketler'], ['style', 'Otobüs'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
+  ['coins', 'Jeton'], ['packs', 'Paketler'], ['style', 'Otobüs'], ['emblem', 'Armalar'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
 ];
 export const POWER_INFO = {
   undo: { name: 'Geri Al', desc: 'Son hamleyi geri alır.', price: PRICES.undo },

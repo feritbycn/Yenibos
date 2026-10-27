@@ -3,6 +3,7 @@ import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
 const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
+import { emblemUrl } from './emblems.js';
 import { UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
 import { Clock } from './time.js';
 import { Preview } from './preview.js';
@@ -141,6 +142,7 @@ export class UI {
           let sw = '';
           if (tab === 'palette') sw = `<div class="swatch">${PALETTES[it.id].slice(0, 6).map((h) => `<i style="background:${hex6(h)}"></i>`).join('')}</div>`;
           else if (tab === 'style') sw = STYLE_IMG[it.id] ? `<img class="bimg" src="${STYLE_IMG[it.id]}" alt="">` : `<div style="color:#2f6bff">${ico('bus', 52)}</div>`;
+          else if (tab === 'emblem') sw = it.id === 'none' ? `<div style="color:#2f6bff">${ico('bus', 52)}</div>` : `<img class="bimg" style="width:64px;height:64px;object-fit:contain" src="${emblemUrl(it.id)}" alt="">`;
           else if (tab === 'rim') sw = `<div class="swatch" style="width:48px;height:48px;border-radius:50%;background:radial-gradient(#222 45%,${it.id === 'gold' ? '#ffc83a' : it.id === 'neon' ? '#35f0ff' : it.id === 'chrome' ? '#f5f8ff' : '#cfd6de'} 48%)"></div>`;
           else if (tab === 'trail') sw = `<div style="font-size:34px;line-height:42px">${{ dust: '💨', sparkle: '✨', stars: '⭐', bubbles: '🫧' }[it.id]}</div>`;
           else sw = `<div style="color:${hex6(VIP_SKINS[it.id].body)}">${ico('vip', 48)}</div>`;
