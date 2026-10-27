@@ -6,10 +6,11 @@ import { solve } from './solver.js';
 import { Save } from './save.js';
 import { Sound } from './audio.js';
 import { AdService } from './ads.js';
+import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { PRICES, COLORS, ADS } from './config.js';
+import { PRICES, COLORS, ADS, IAP, CONV_LIMIT } from './config.js';
 import { SHOP, DAILY_REWARDS, POWER_INFO, ACHIEVEMENTS, ensureDailyQuests, questDef, dayKey, dayDiff } from './economy.js';
 
 const $ = (s) => document.querySelector(s);
@@ -23,7 +24,7 @@ export class Game {
     this.save = new Save();
     this.sound = new Sound();
     this.ui = new UI(this);
-    this.ads = new AdService(this.ui);
+    this.ads = new AdService(this.ui); this.iap = new IapService(this);
     const d = this.save.data;
     this.sound.setSound(d.settings.sound); this.sound.setVibe(d.settings.vibe);
     this.scene = new GameScene($('#stage'), { quality: d.settings.quality, preserve: !!opts.preserve });
@@ -173,6 +174,7 @@ export class Game {
   handleTap(id) {
     if (this.phase !== 'play' || this.paused) return;
     if (this.mode === 'convert') { this.openConvert(id); return; }
+    if (this.mode === 'call') { this.openCall(id); return; }
     if (this.mode === 'recall') return;
     if (this.scene.isTraveling()) { this.queueTap(id); return; }
     const s = this.state; const snap = E.clone(s);
@@ -252,7 +254,7 @@ export class Game {
     const d = this.save.data, n = this.levelN;
     this.scene.celebrate();
     const stars = this.assists === 0 ? 3 : this.assists <= 2 ? 2 : 1;
-    const coins = 40 + stars * 10 + Math.min(80, n * 2);
+    const coins = 15 + stars * 5 + Math.min(15, Math.floor(n / 3));      // jeton zor kazanılır: ~25-45 / seviye
     d.completed[n] = Math.max(d.completed[n] || 0, stars);
     d.level = Math.max(d.level, n + 1);
     d.stats.levels++; if (stars === 3) d.stats.threeStars++;
@@ -299,6 +301,12 @@ export class Game {
     if (!this.ads.consume(r.token)) return false;
     this.save.data.stats.ads++; this.save.save(); return true;
   }
+  async buyCoinPack(id) {
+    const pk = IAP.packs.find((x) => x.id === id); if (!pk) return false;
+    const r = await this.iap.buy(pk);
+    if (r.ok) { this.ui.setCoins(this.save.data.coins, true); this.sound.play('coin'); this.ui.toast(`+${pk.coins} jeton!`, 'good'); return true; }
+    this.ui.toast(r.reason === 'unavailable' ? 'Gerçek parayla satın alma bu sürümde kapalı.' : 'Satın alma tamamlanmadı, jeton verilmedi.', 'bad'); return false;
+  }
   async doubleReward(coins) { if (!(await this.requestAd('double-reward'))) return false; this.addCoins(coins, false); this.sound.play('coin'); return true; }
 
   // günlük / görev / başarı
@@ -334,13 +342,13 @@ export class Game {
     this.sound.play('click');
     if (this.mode) this.setMode(null);
     const d = this.save.data;
-    if (['undo', 'hint', 'recall', 'call'].includes(kind) && d.powerups[kind] <= 0) { this.ui.powerBuy(kind); return; }
+    if (['undo', 'hint', 'recall'].includes(kind) && d.powerups[kind] <= 0) { this.ui.powerBuy(kind); return; }
     if (this.scene.isBusy() && kind !== 'hint') { this.ui.toast('Animasyon bitsin, sonra dene.'); return; }
     switch (kind) {
       case 'undo': if (this.doUndo()) this.usePower('undo'); break;
       case 'hint': if (this.doHint()) this.usePower('hint'); break;
       case 'recall': this.setMode('recall', 'Geri çağırmak istediğin park eden otobüse dokun'); break;
-      case 'call': if (this.doCall()) this.usePower('call'); break;
+      case 'call': this.setMode('call', 'Çağıracağın otobüse dokun'); this.suggestCall(); break;
       case 'convert': this.startConvertMode(); break;
       case 'vipcall': this.offerVipCall(); break;
       default: break;
@@ -377,6 +385,40 @@ export class Game {
     if (!r.ok) { this.ui.toast(r.reason === 'occupied' ? 'Başlangıç yeri dolu, geri çağrılamaz.' : 'Bu otobüs geri çağrılamaz.', 'bad'); this.sound.play('error'); return; }
     this.snapshots.push(snap); this.scene.animateRecall(id); this.setMode(null); this.usePower('recall'); this.scene.idleFired = false;
   }
+  /** Sıradaki yolcunun renginde, en az engelli otobüsü parlatarak önerir. */
+  suggestCall() {
+    const s = this.state; const c = E.headColor(s); if (c === null) return;
+    let best = null, sc = 1e9;
+    for (const b of s.buses) { if (b.st !== 'board' || b.vip || b.color !== c) continue; const n = E.blockers(s, b).length; if (n < sc) { sc = n; best = b; } }
+    if (best) this.scene.setGlow(best.id, 0xffe066);
+  }
+  /** Çağır modunda bir otobüse dokunuldu: ödeme seçeneklerini göster. */
+  openCall(id) {
+    const s = this.state; const b = s.buses[id]; const d = this.save.data;
+    if (!b || b.st !== 'board') return;
+    if (b.vip) { this.ui.toast('VIP otobüsler çağrılamaz; VIP için VIP Çağır\'ı kullan.'); return; }
+    if (E.slotFor(s, b) === -1) { this.ui.toast('Park yeri yok! Önce yer aç.', 'bad'); this.sound.play('error'); return; }
+    if (this.scene.isBusy()) { this.ui.toast('Animasyon bitsin, sonra dene.'); return; }
+    const cname = COLORS[b.color]?.name || '';
+    const c = this.ui.modal({
+      title: 'Otobüs Çağır', head: 'purple', onClose: () => { if (this.mode === 'call') this.setMode(null); },
+      body: `<p>Seçtiğin <b>${cname}</b> otobüs (${b.seats} koltuk), önündeki engellere takılmadan park alanına gelir.</p>`,
+      foot: `${d.powerups.call > 0 ? `<button class="btn blue" data-act="item">${ico('call', 22)} Envanterden kullan (${d.powerups.call})</button>` : ''}${ADS.mode !== 'off' ? `<button class="btn gold" data-act="ad">${ico('ad', 22)} Reklam izle</button>` : ''}<button class="btn orange" data-act="coin">${ico('coin', 22)} ${PRICES.call} jeton</button>`,
+    });
+    this.ui.onAct(c, { item: async () => { if (await this.callPick(id, 'item')) c.close(); }, ad: async () => { if (await this.callPick(id, 'ad')) c.close(); }, coin: async () => { if (await this.callPick(id, 'coin')) c.close(); } });
+  }
+  async callPick(id, pay) {
+    const s = this.state; const d = this.save.data; const b = s.buses[id];
+    if (!b || b.st !== 'board' || b.vip || E.slotFor(s, b) === -1) { this.ui.toast('Bu otobüs şu an çağrılamaz.', 'bad'); return false; }
+    if (pay === 'item') { if (d.powerups.call <= 0) return false; }
+    else if (pay === 'ad') { if (!(await this.requestAd('call-pick'))) return false; }
+    else if (!this.spendCoins(PRICES.call)) return false;
+    const snap = E.clone(s); const r = E.callBus(s, id);
+    if (!r.ok) { this.ui.toast('Çağrılamadı.', 'bad'); return false; }
+    if (pay === 'item') d.powerups.call--;
+    this.snapshots.push(snap); this.setMode(null); this.scene.startCraneToSlot(r.id, r.slot); this.assists++; this.scene.idleFired = false; this.refreshChips(); this.renderPowerBar(); this.save.save();
+    return true;
+  }
   doCall() {
     const snap = E.clone(this.state);
     const r = E.callMatching(this.state);
@@ -385,7 +427,7 @@ export class Game {
   }
   startConvertMode() {
     const d = this.save.data;
-    if (d.temp.conv >= 2) { this.ui.toast('Bu seviyede dönüştürme hakkın bitti.', 'bad'); return; }
+    if (d.temp.conv >= CONV_LIMIT) { this.ui.toast('Bu seviyede dönüştürme hakkın bitti.', 'bad'); return; }
     this.setMode('convert', 'Dönüştürmek istediğin otobüse dokun');
   }
   openConvert(id) {
@@ -393,23 +435,23 @@ export class Game {
     if (!b || b.st !== 'board') return;
     if (b.vip) { this.ui.toast('VIP otobüsler dönüştürülemez.'); return; }
     const colors = [...new Set(s.queue.slice(s.qi))].filter((c) => c !== b.color);
-    this.ui.convertDialog({ id, colors, seats: b.seats, canGrow: !!E.canGrow(s, id), left: 2 - d.temp.conv });
+    this.ui.convertDialog({ id, colors, seats: b.seats, canGrow: !!E.canGrow(s, id), canSeat: E.canAddSeat(s, id), maxSeats: b.len * 2, left: CONV_LIMIT - d.temp.conv });
   }
   async applyConvert(id, sel, pay) {
     if (!sel) return false;
     const s = this.state; const d = this.save.data;
     // çözülebilirlik güvencesi: dönüşümü kopya üzerinde dene
     const test = E.clone(s);
-    if (sel.type === 'color') E.convertColor(test, id, sel.v); else E.grow(test, id);
+    if (sel.type === 'color') E.convertColor(test, id, sel.v); else if (sel.type === 'seat') E.addSeat(test, id); else E.grow(test, id);
     const chk = solve(test, { useVip: false, maxNodes: 150000 });
     if (!chk.solved && !chk.aborted) { this.ui.toast('Bu dönüşüm seviyeyi çözümsüz yapar, başka seçenek dene.', 'bad'); return false; }
-    if (pay === 'ad') { if (!(await this.requestAd('convert'))) return false; } else if (!this.spendCoins(PRICES.convert)) return false;
+    if (pay === 'ad') { if (!(await this.requestAd('convert'))) return false; } else if (!this.spendCoins(sel.type === 'seat' ? PRICES.seat : PRICES.convert)) return false;
     const snap = E.clone(s);
-    const r = sel.type === 'color' ? E.convertColor(s, id, sel.v) : E.grow(s, id);
+    const r = sel.type === 'color' ? E.convertColor(s, id, sel.v) : sel.type === 'seat' ? E.addSeat(s, id) : E.grow(s, id);
     if (!r.ok) { this.ui.toast('Dönüştürme uygulanamadı.', 'bad'); return false; }
     this.snapshots.push(snap);
     if (sel.type === 'color') this.scene.convertFx(id, 'color'); else this.scene.rebuildBus(id);
-    d.temp.conv++; this.assists++; this.save.save(); this.setMode(null); this.ui.toast('Otobüs dönüştürüldü!', 'good'); return true;
+    d.temp.conv++; this.assists++; this.save.save(); this.setMode(null); this.ui.toast(sel.type === 'seat' ? 'Koltuk eklendi!' : 'Otobüs dönüştürüldü!', 'good'); return true;
   }
   offerVipCall() {
     const s = this.state; const d = this.save.data;

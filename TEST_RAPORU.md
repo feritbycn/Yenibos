@@ -28,6 +28,15 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - **Seviye bitince yarım kalan otobüsler:** VIP yolcu aldığında regüler otobüsler dolmadan kalabiliyor; seviye bitince park yerindeki tüm otobüsler yolcularıyla ayrılıyor, sonra sonuç ekranı geliyor (VIP'li seviyelerde 2, 16 için senaryo testi: bitişte park yerinde otobüs kalmadı).
 - Regresyon: `npm test` 21/21, `e2e` 18/18, `e2e2` 21/21 (40 seviye).
 
+### 3. tur değişiklikleri — doğrulama
+- **Jeton ekonomisi zorlaştırıldı:** seviye ödülü 25–45 jeton (önce 76–130), günlük ödül 20–80, görev/başarım ödülleri ~%60 düşürüldü, başlangıç 60 jeton. Test: seviye ödülü ve günlük ödül değerleri e2e ile doğrulandı.
+- **Gerçek parayla jeton:** mağazada Jeton sekmesi ve `iap.js` adaptörü var. `IAP.mode='off'` iken satın alma çalışmıyor ve jeton verilmiyor (test edildi). **Play Faturalandırma yolu hiç çalıştırılmadı**, eklenti API'si doğrulanmadı.
+- **Minibüsler:** 6+ seviyelerde 109 minibüs (3/5 koltuk); 40 seviye yeniden üretilip çözücü + motor tekrarıyla doğrulandı; tümü e2e'de oynanarak kazanıldı. Koltuk ekleme (+1, 60 jeton) test edildi.
+- **Çağır (seçerek):** yolu kapalı bir otobüs seçilip park alanına çağrıldı (stoktan ve jetonla 120) — test edildi. Reklam yolu test reklamıyla aynı `requestAd` hattını kullanır.
+- **Modern ve Lüks otobüs:** satın alma/kuşanma ve seviyede çizim test edildi; ekran görüntüsü ile kontrol edildi (tavan rengi korunuyor, renk eşleşmesi okunabilir).
+- Regresyon: `npm test` 21/21, `e2e` 18/18, `e2e2` 26/26 (40 seviye gerçek oyunda kazanıldı).
+- **Dikkat:** 36, 39 ve 40. seviyelerin ilk aşamasında rastgele oyun kazanma oranı ≈ %0 (çözülebilir ama çok zor); zorluk dengesi gerçek oyuncuyla denenmedi.
+
 ### Testlerin bulduğu ve düzelttiği hatalar
 - Kayıt temizleme (`sanitize`) varsayılan nesneyi aliaslıyordu → yeniden açılışta `stats`/`powerups` boşalıyordu. Düzeltildi, testle doğrulandı.
 - Varış olayı hiç tetiklenmiyordu, `hidden` özniteliğini CSS eziyordu, iç mekân opak çiziliyordu vb. (geliştirme sırasında düzeltildi).

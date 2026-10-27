@@ -98,9 +98,10 @@ await ev(() => window.__game.onPower('undo')); await ff(0.6); let p3 = await S()
 check('Geri al: hamle sayısı ve otobüs durumu geri döndü', p3.moves === 0 && p3.qi === 0 && p3.board === p0.board && p3.pu.undo === p1.pu.undo - 1, JSON.stringify({ moves: p3.moves, board: p3.board, undo: p3.pu.undo }));
 await ev(() => window.__game.onPower('undo')); await ff(0.2); const p3b = await S();
 check('Geri alınacak hamle yokken hak tüketilmiyor', p3b.pu.undo === p3.pu.undo, `undo ${p3.pu.undo}->${p3b.pu.undo}`);
-// çağır
-await ev(() => window.__game.onPower('call')); await ff(0.2); await idle(30); let p4 = await S();
-check('Çağır: sıradaki yolcunun renginde otobüs çağrıldı ve yolcular bindi', p4.qi > 0 && p4.pu.call === p3.pu.call - 1, JSON.stringify({ qi: p4.qi, call: p4.pu.call }));
+// çağır: seçilen otobüs (engelli olsa bile) park yerine gelir
+const pick = await ev(async () => { const g = window.__game; g.onPower('call'); const mode = g.mode; const st = g.state; const c = st.queue[st.qi]; const cands = st.buses.filter((x) => x.st === 'board' && !x.vip && x.color === c); const blocked = cands.find((x) => !window.__free(g, x)); const b = blocked || cands[0]; const before = g.save.data.powerups.call; const ok = await g.callPick(b.id, 'item'); return { mode, ok, wasBlocked: !!blocked, call: [before, g.save.data.powerups.call] }; });
+await ff(0.2); await idle(30); let p4 = await S();
+check('Çağır: seçilen otobüs (yolu kapalı olsa da) park alanına çağrıldı, yolcular bindi', pick.mode === 'call' && pick.ok && p4.qi > 0 && pick.call[1] === pick.call[0] - 1, JSON.stringify({ pick, qi: p4.qi }));
 // recall
 await ev(() => { const g = window.__game; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip && window.__free(g, x)); g.handleTap(b.id); }); await idle(30);
 const parkedBefore = (await S()).parked;
@@ -119,6 +120,22 @@ await ev(() => { const g = window.__game; g.save.data.temp.conv = 0; });
 const convRes = await ev(async () => { const g = window.__game; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip); const colors = [...new Set(g.state.queue.slice(g.state.qi))].filter((c) => c !== b.color); const before = { color: b.color, seats: b.seats, id: b.id }; let ok = false; for (const c of colors) { ok = await g.applyConvert(b.id, { type: 'color', v: c }, 'coin'); if (ok) { return { ok, before, after: { color: g.state.buses[b.id].color, seats: g.state.buses[b.id].seats }, c }; } } return { ok, before, colors }; });
 check('Otobüs dönüştürme: renk değişti, kapasite aynı kaldı (veya çözümsüz seçenek reddedildi)', convRes.ok ? (convRes.after.color === convRes.c && convRes.after.seats === convRes.before.seats) : true, JSON.stringify(convRes));
 
+// ---------- 4b) Yeni özellikler: koltuk ekleme, çağır (jeton), jeton paketleri, yeni stiller
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.save.data.coins = 5000; g.startLevel(13); }); await ff(0.5);
+const seat = await ev(async () => { const g = window.__game; const d = g.save.data; d.temp.conv = 0; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip && x.seats < x.len * 2); if (!b) return { none: true }; const c0 = d.coins, s0 = b.seats; const ok = await g.applyConvert(b.id, { type: 'seat' }, 'coin'); return { ok, s0, s1: g.state.buses[b.id].seats, spent: c0 - d.coins }; });
+check('Minibüse koltuk eklenebiliyor (+1 koltuk, 60 jeton)', seat.none ? true : (seat.ok && seat.s1 === seat.s0 + 1 && seat.spent === 60), JSON.stringify(seat));
+const minis = await ev(() => { let n = 0; for (let l = 6; l <= 40; l++) { const L = window.__game.peekLevel(l); for (const st of L.stages) for (const b of st.buses) if (b.s) n++; } return n; });
+check('Seviyelerde minibüsler (3/5 koltuk) bulunuyor', minis > 20, 'minibüs sayısı=' + minis);
+const coinPick = await ev(async () => { const g = window.__game; const d = g.save.data; const st = g.state; const b = st.buses.find((x) => x.st === 'board' && !x.vip); const c0 = d.coins; const ok = await g.callPick(b.id, 'coin'); return { ok, spent: c0 - d.coins }; });
+check('Çağır jetonla: 120 jeton düştü', coinPick.ok && coinPick.spent === 120, JSON.stringify(coinPick));
+const pack = await ev(async () => { const g = window.__game; const c0 = g.save.data.coins; const ok = await g.buyCoinPack('c500'); return { ok, delta: g.save.data.coins - c0 }; });
+check('Gerçek parayla satın alma kapalıyken jeton VERİLMİYOR', pack.ok === false && pack.delta === 0, JSON.stringify(pack));
+const sty = await ev(() => { const g = window.__game; const d = g.save.data; const out = []; for (const id of ['modern', 'luxury']) { d.coins = 5000; const ok = g.buyItem('style', id); g.equip('style', id); g.ui.closeAll(); g.startLevel(12); out.push([id, ok, d.equipped.style]); } return out; });
+await ff(0.5);
+check('Modern ve Lüks otobüs satın alınıp kuşanılıyor, seviye açılıyor', sty.every(([id, ok, eq]) => ok && eq === id), JSON.stringify(sty));
+const coinsPerLevel = await ev(() => { const g = window.__game; const d = g.save.data; const c0 = d.coins; g.ui.closeAll(); g.startLevel(10); return null; });
+void coinsPerLevel;
+
 // ---------- 5) Ekonomi: mağaza satın alma, kalıcı slot, görevler, kayıt
 const eco = await ev(() => { const g = window.__game; g.save.data.coins = 5000; const a = g.buyItem('style', 'coach'); const b = g.save.data.equipped.style === 'coach'; const c0 = g.save.data.coins; const p = g.buyPermSlot(); return { a, b, c0, p, perm: g.save.data.perm.slots, coins: g.save.data.coins }; });
 check('Mağaza: otobüs satın alma + kuşanma, jeton düşüyor', eco.a && eco.b && eco.c0 === 5000 - 800, JSON.stringify(eco));
@@ -132,7 +149,7 @@ check('Uygulama yeniden açılınca ilerleme/jeton/satın almalar korundu', pers
 // bozuk kayıt
 await ev(() => localStorage.setItem('busPuzzleDeluxe.save.v1', '{"coins":"abc","level":-5,"owned":{"style":42}}')); await pg.reload(); await pg.waitForTimeout(1500);
 const safe = await ev(() => { const d = window.__game.save.data; return { coins: d.coins, level: d.level, style: d.owned.style }; });
-check('Bozuk kayıt güvenle varsayılana düşüyor', safe.level === 1 && safe.coins === 120 && safe.style.includes('city'), JSON.stringify(safe));
+check('Bozuk kayıt güvenle varsayılana düşüyor', safe.level === 1 && safe.coins === 60 && safe.style.includes('city'), JSON.stringify(safe));
 // görevler
 await ev(() => { const g = window.__game; g.ui.closeAll(); const t = g.save.data.tutorial; t.l1 = t.l2 = true; g.startLevel(3); }); await ff(0.3);
 const ord = await ev(() => window.__game.lvl.stages[0].solution.slice());

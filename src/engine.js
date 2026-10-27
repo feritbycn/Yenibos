@@ -14,7 +14,7 @@ export function seatsOf(len, vip) { return vip ? VIP_SEATS : len * SEATS_PER_CEL
 export function makeState(stage, opts = {}) {
   const buses = stage.buses.map((b, i) => ({
     id: i, color: b.v ? VIP_COLOR : b.c, len: b.l, dir: b.d, x: b.x, y: b.y, x0: b.x, y0: b.y,
-    vip: !!b.v, seats: seatsOf(b.l, b.v), boarded: 0, st: 'board', slot: -1, arrived: false,
+    vip: !!b.v, seats: b.s ?? seatsOf(b.l, b.v), boarded: 0, st: 'board', slot: -1, arrived: false,
   }));
   const open = opts.slotsOpen ?? SLOTS_BASE;
   const slotOpen = [];
@@ -219,6 +219,18 @@ export function callMatching(s) {
   return { ok: true, id: best.id, slot };
 }
 
+/** Seçilen otobüsü (yolu kapalı olsa bile) boş park yerine çağırır. */
+export function callBus(s, id) {
+  const b = s.buses[id];
+  if (!b || b.st !== 'board' || b.vip) return { ok: false, reason: 'invalid' };
+  const slot = slotFor(s, b);
+  if (slot === -1) return { ok: false, reason: 'noslot' };
+  b.st = 'parked'; b.slot = slot; b.arrived = false;
+  s.slots[slot] = b.id;
+  s.moves++;
+  return { ok: true, id: b.id, slot };
+}
+
 /** VIP otobüsü doğrudan VIP alanına çağırır (yeni araç oluşturur). */
 export function spawnVip(s) {
   if (s.vipSlot !== null) return { ok: false, reason: 'vipfull' };
@@ -258,8 +270,12 @@ export function grow(s, id) {
   const g = canGrow(s, id);
   if (!g) return { ok: false, reason: 'nospace' };
   const b = s.buses[id];
-  b.x = g.nx; b.y = g.ny; b.x0 = b.x; b.y0 = b.y; b.len++; b.seats = seatsOf(b.len, false);
+  b.x = g.nx; b.y = g.ny; b.x0 = b.x; b.y0 = b.y; b.len++; b.seats += SEATS_PER_CELL;
   return { ok: true };
 }
+
+/** Koltuk ekle: otobüs uzunluğunun alabileceği en fazla koltuğa kadar +1 (örn. 3 → 4). */
+export function canAddSeat(s, id) { const b = s.buses[id]; return !!b && b.st === 'board' && !b.vip && b.seats < b.len * SEATS_PER_CELL; }
+export function addSeat(s, id) { if (!canAddSeat(s, id)) return { ok: false, reason: 'full' }; s.buses[id].seats++; return { ok: true }; }
 
 export function passengersLeft(s) { return s.queue.length - s.qi; }

@@ -8,6 +8,8 @@ export const SHOP = {
     { id: 'mini', name: 'Minibüs', price: 250, desc: 'Küçük, tombul ve sevimli.' },
     { id: 'school', name: 'Okul Servisi', price: 450, desc: 'Siyah şeritli, dur levhalı servis.' },
     { id: 'coach', name: 'Konfor Otobüsü', price: 800, desc: 'Uzun camlı, gümüş etekli yolcu otobüsü.' },
+    { id: 'modern', name: 'Modern Otobüs', price: 1200, desc: 'Alçak, aerodinamik, panoramik camlı; LED ışık şeritli.' },
+    { id: 'luxury', name: 'Lüks Otobüs', price: 2500, desc: 'Metalik boya, krom detaylar, koyu camlı VIP yolcu otobüsü.' },
   ],
   palette: [
     { id: 'vivid', name: 'Canlı', price: 0, desc: 'Varsayılan doygun renkler.' },
@@ -34,45 +36,45 @@ export const SHOP = {
   ],
 };
 export const SHOP_TABS = [
-  ['style', 'Otobüs'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
+  ['coins', 'Jeton'], ['style', 'Otobüs'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
 ];
 export const POWER_INFO = {
   undo: { name: 'Geri Al', desc: 'Son hamleyi geri alır.', price: PRICES.undo },
   hint: { name: 'İpucu', desc: 'Bir sonraki doğru otobüsü gösterir.', price: PRICES.hint },
   recall: { name: 'Geri Çağır', desc: 'Park eden otobüsü başlangıç yerine döndürür.', price: PRICES.recall },
-  call: { name: 'Otobüs Çağır', desc: 'Sıradaki yolcunun renginde bir otobüsü park alanına çağırır.', price: PRICES.call },
+  call: { name: 'Otobüs Çağır', desc: 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır.', price: PRICES.call },
   extraSlot: { name: 'Ek Park Yeri', desc: 'Bu seviye için bir park yeri açar.', price: PRICES.extraSlot },
   moves: { name: 'Ek Hamle', desc: 'Hamle sınırlı seviyelerde +4 hamle.', price: PRICES.moves },
   time: { name: 'Ek Süre', desc: 'Süreli seviyelerde +30 saniye.', price: PRICES.time },
 };
 
 export const DAILY_REWARDS = [
-  { coins: 50 }, { coins: 75 }, { coins: 100, power: ['undo', 1] }, { coins: 125 }, { coins: 150, power: ['hint', 2] }, { coins: 200 }, { coins: 350, power: ['call', 2] },
+  { coins: 20 }, { coins: 25 }, { coins: 30, power: ['undo', 1] }, { coins: 35 }, { coins: 40, power: ['hint', 1] }, { coins: 50 }, { coins: 80, power: ['call', 1] },
 ];
 
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export function dayDiff(a, b) { const pa = new Date(a + 'T00:00:00'), pb = new Date(b + 'T00:00:00'); return Math.round((pb - pa) / 86400000); }
 
 export const QUEST_POOL = [
-  { id: 'levels3', text: '3 seviye tamamla', ev: 'level', goal: 3, reward: 80 },
-  { id: 'pass20', text: '20 yolcuyu otobüse bindir', ev: 'passenger', goal: 20, reward: 60 },
-  { id: 'vip1', text: 'Bir VIP otobüs kullan', ev: 'vip', goal: 1, reward: 90 },
-  { id: 'puz5', text: '5 bulmacayı başarıyla tamamla', ev: 'level', goal: 5, reward: 150 },
-  { id: 'star3', text: 'Bir seviyeyi 3 yıldızla bitir', ev: 'threeStar', goal: 1, reward: 100 },
-  { id: 'bus12', text: '12 otobüsü yolcu ile doldur', ev: 'busFull', goal: 12, reward: 70 },
-  { id: 'slot1', text: 'Bir ek park yeri aç', ev: 'slot', goal: 1, reward: 60 },
-  { id: 'pass50', text: '50 yolcuyu otobüse bindir', ev: 'passenger', goal: 50, reward: 120 },
+  { id: 'levels3', text: '3 seviye tamamla', ev: 'level', goal: 3, reward: 30 },
+  { id: 'pass20', text: '20 yolcuyu otobüse bindir', ev: 'passenger', goal: 20, reward: 25 },
+  { id: 'vip1', text: 'Bir VIP otobüs kullan', ev: 'vip', goal: 1, reward: 35 },
+  { id: 'puz5', text: '5 bulmacayı başarıyla tamamla', ev: 'level', goal: 5, reward: 60 },
+  { id: 'star3', text: 'Bir seviyeyi 3 yıldızla bitir', ev: 'threeStar', goal: 1, reward: 40 },
+  { id: 'bus12', text: '12 otobüsü yolcu ile doldur', ev: 'busFull', goal: 12, reward: 30 },
+  { id: 'slot1', text: 'Bir ek park yeri aç', ev: 'slot', goal: 1, reward: 25 },
+  { id: 'pass50', text: '50 yolcuyu otobüse bindir', ev: 'passenger', goal: 50, reward: 50 },
 ];
 
 export const ACHIEVEMENTS = [
-  { id: 'first', name: 'İlk Yolculuk', text: 'İlk seviyeyi tamamla', stat: 'levels', goal: 1, reward: 50 },
-  { id: 'lv10', name: 'Yol Arkadaşı', text: '10 seviye tamamla', stat: 'levels', goal: 10, reward: 150 },
-  { id: 'lv30', name: 'Şehir Ustası', text: '30 seviye tamamla', stat: 'levels', goal: 30, reward: 400 },
-  { id: 'pass100', name: 'Kalabalık Taşıyıcı', text: '100 yolcu taşı', stat: 'passengers', goal: 100, reward: 120 },
-  { id: 'pass1000', name: 'Metropol Hattı', text: '1000 yolcu taşı', stat: 'passengers', goal: 1000, reward: 500 },
-  { id: 'vip1', name: 'Kırmızı Halı', text: 'Bir VIP otobüs kullan', stat: 'vip', goal: 1, reward: 100 },
-  { id: 'slot1', name: 'Genişleme', text: 'Bir ek park yeri aç', stat: 'slots', goal: 1, reward: 80 },
-  { id: 'star10', name: 'Mükemmeliyetçi', text: '10 seviyede 3 yıldız al', stat: 'threeStars', goal: 10, reward: 300 },
+  { id: 'first', name: 'İlk Yolculuk', text: 'İlk seviyeyi tamamla', stat: 'levels', goal: 1, reward: 25 },
+  { id: 'lv10', name: 'Yol Arkadaşı', text: '10 seviye tamamla', stat: 'levels', goal: 10, reward: 60 },
+  { id: 'lv30', name: 'Şehir Ustası', text: '30 seviye tamamla', stat: 'levels', goal: 30, reward: 150 },
+  { id: 'pass100', name: 'Kalabalık Taşıyıcı', text: '100 yolcu taşı', stat: 'passengers', goal: 100, reward: 50 },
+  { id: 'pass1000', name: 'Metropol Hattı', text: '1000 yolcu taşı', stat: 'passengers', goal: 1000, reward: 200 },
+  { id: 'vip1', name: 'Kırmızı Halı', text: 'Bir VIP otobüs kullan', stat: 'vip', goal: 1, reward: 40 },
+  { id: 'slot1', name: 'Genişleme', text: 'Bir ek park yeri aç', stat: 'slots', goal: 1, reward: 35 },
+  { id: 'star10', name: 'Mükemmeliyetçi', text: '10 seviyede 3 yıldız al', stat: 'threeStars', goal: 10, reward: 120 },
 ];
 
 export function ensureDailyQuests(save) {

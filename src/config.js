@@ -32,6 +32,18 @@ export const ADS = {
 export const PRICES = {
   undo: 60, hint: 40, recall: 80, call: 120, moves: 70, time: 70, extraSlot: 150,
   permSlot: [400, 800, 1500],
-  convert: 100,
+  convert: 100, seat: 60,
 };
+export const CONV_LIMIT = 3;   // seviye başına otobüs değiştirme/koltuk ekleme hakkı
 export const POWERUPS = ['extraSlot', 'undo', 'hint', 'recall', 'call', 'moves', 'time'];
+
+// Gerçek para ile jeton paketleri. mode 'off' iken satın alma çalışmaz ve jeton verilmez (README).
+export const IAP = {
+  mode: 'off',
+  packs: [
+    { id: 'c500', productId: 'coins_500', coins: 500, label: 'Avuç Dolusu' },
+    { id: 'c1300', productId: 'coins_1300', coins: 1300, label: 'Kese' },
+    { id: 'c3500', productId: 'coins_3500', coins: 3500, label: 'Sandık' },
+    { id: 'c9000', productId: 'coins_9000', coins: 9000, label: 'Hazine' },
+  ],
+};

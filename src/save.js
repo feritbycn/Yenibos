@@ -3,7 +3,7 @@ import { SAVE_KEY } from './config.js';
 
 export const defaults = () => ({
   v: 1,
-  level: 1, completed: {}, coins: 120,
+  level: 1, completed: {}, coins: 60,
   owned: { style: ['city'], rim: ['steel'], palette: ['vivid'], trail: ['dust'], vipSkin: ['gold'] },
   equipped: { style: 'city', rim: 'steel', palette: 'vivid', trail: 'dust', vipSkin: 'gold' },
   perm: { slots: 0 },
@@ -14,6 +14,7 @@ export const defaults = () => ({
   daily: { lastClaim: '', streak: 0 },
   quests: { date: '', list: [], progress: {}, claimed: {} },
   ach: { unlocked: {}, claimed: {} },
+  iap: { tx: [] },
   stats: { passengers: 0, levels: 0, vip: 0, coinsEarned: 0, buses: 0, slots: 0, threeStars: 0, ads: 0 },
 });
 
@@ -42,6 +43,7 @@ export function sanitize(raw) {
   const da = obj(r.daily); out.daily = { lastClaim: str(da.lastClaim, ''), streak: num(da.streak, 0, 0, 7) };
   const qu = obj(r.quests); out.quests = { date: str(qu.date, ''), list: Array.isArray(qu.list) ? qu.list.filter((q) => q && typeof q.id === 'string').slice(0, 6) : [], progress: obj(qu.progress), claimed: obj(qu.claimed) };
   const ac = obj(r.ach); out.ach = { unlocked: obj(ac.unlocked), claimed: obj(ac.claimed) };
+  out.iap = { tx: Array.isArray(obj(r.iap).tx) ? obj(r.iap).tx.filter((x) => typeof x === 'string').slice(-300) : [] };
   const st = obj(r.stats); out.stats = {}; for (const k of Object.keys(d.stats)) out.stats[k] = num(st[k], 0);
   return out;
 }

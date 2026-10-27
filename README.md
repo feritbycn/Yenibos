@@ -10,7 +10,11 @@ Referans görsellerdeki oyun türünden esinlenilmiştir; modeller, arayüz, sev
 - Otobüse dokun veya oku yönünde sürükle. Yol açıksa park alanına gider; yoldaki otobüs engeldir.
 - Yolcular **katı sırayla** (baştaki yolcu) yalnızca **aynı renkli** otobüse biner. Otobüs dolunca kalkar, park yeri boşalır.
 - Park yeri dolarsa kaybedersin. **VIP** (altın) otobüs her renkten yolcu alır, kendi alanına park eder.
-- Güçlendiriciler: Geri Al, İpucu, Geri Çağır, Çağır, Değiştir (renk dönüştür), VIP çağır; ek hamle/süre; ek park yeri.
+- Güçlendiriciler: Geri Al, İpucu, Geri Çağır, **Çağır** (tahtadan istediğin otobüsü seç, yolu kapalı olsa bile park alanına gelir: stok / reklam / 120 jeton), **Değiştir** (renk değiştir, **koltuk ekle +1** ya da **uzat +2**; reklam veya jeton), VIP çağır; ek hamle/süre; ek park yeri (reklam ya da 150 jeton, sadece o seviye).
+- **Minibüsler:** 6. seviyeden itibaren bazı otobüsler 3 veya 5 koltuklu; "Değiştir" ile koltuk eklenebilir. Kuyruktaki yolcu sayısı koltuklarla birebir eşittir.
+- Seviye bitince park yerinde kalan (VIP yolcuları yüzünden dolmayan) otobüsler yolcularıyla ayrılır.
+- **Otobüs stilleri:** Şehir, Minibüs, Okul Servisi, Konfor, **Modern** (panoramik cam, LED şerit), **Lüks** (metalik boya, krom detaylar, koyu cam).
+- **Jeton zor kazanılır** (seviye başına ~25–45 jeton); ücretli seçenekler jetonla ya da reklamla alınır.
 - Mağaza (otobüs stilleri, jantlar, VIP kaplamaları, renk paletleri), koleksiyon (dönen 3D önizleme), günlük ödül, günlük görevler, başarımlar.
 - 40 hazır seviye (hepsi çözücüyle doğrulanmış), 41+ sonsuz üretim. 26–30. seviyeler çok aşamalı + süreli. Seviye 1–2 parmaklı eğitim.
 
@@ -46,6 +50,13 @@ Yayın (release) için Android Studio'da **Build > Generate Signed Bundle / APK*
 3. İş bitince sayfanın altındaki **Artifacts → bus-puzzle-deluxe-debug-apk** dosyasını indir, zip'ten `app-debug.apk` çıkar, telefona kur. Debug imzalıdır; Play Store için release imzası gerekir.
 Workflow üç dosya üretir: `app-debug.apk`, `app-release.apk` ve `app-release.aab`. Repo **Settings → Secrets → Actions** içine `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` eklersen kendi anahtarınla imzalar. Eklemezsen her çalıştırmada rastgele bir TEST anahtarı üretilir: APK telefona kurulur ama **Play Store'a yüklenecek AAB için kendi kalıcı anahtarın şart** (aynı anahtarla güncelleme yapılır).
 Not: bu workflow burada çalıştırılamadı; ilk çalıştırmada hata verirse Actions log'unu paylaş.
+
+## Gerçek parayla jeton (Google Play Faturalandırma)
+Mağaza → **Jeton** sekmesinde 4 paket vardır (`src/config.js` → `IAP`). **Varsayılan `IAP.mode = 'off'`: satın alma kapalıdır, hiçbir şekilde jeton verilmez.** Açmak için:
+1. Play Console'da uygulamayı oluştur, 4 adet **tüketilebilir (managed) ürün** ekle: `coins_500`, `coins_1300`, `coins_3500`, `coins_9000`.
+2. `npm i @capgo/native-purchases && npx cap sync android` (ya da başka bir Capacitor faturalandırma eklentisi; `src/iap.js` içindeki çağrıyı eklentine göre uyarla).
+3. `IAP.mode = 'play'` yap, yeniden derle, Play Console'dan **iç test** kanalıyla dene.
+`src/iap.js` bu eklenti için yazıldı fakat **hiç denenmedi**; üründe tüketme (consume) ve sunucu tarafı makbuz doğrulaması eklenmelidir. Fiyatlar Play'den gelir; oyun fiyat uydurmaz.
 
 ## Reklam (AdMob) entegrasyonu
 Varsayılan mod `test`: ekranda "TEST REKLAMI" yazan, 3 sn'lik sahte bir geliştirme reklamı gösterilir; **gerçek reklam değildir**.

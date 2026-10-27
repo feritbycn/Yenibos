@@ -2,7 +2,7 @@
 import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
-import { PRICES, ADS, COLORS, VIP_COLOR } from './config.js';
+import { PRICES, ADS, COLORS, VIP_COLOR, IAP } from './config.js';
 import { Preview } from './preview.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -132,6 +132,9 @@ export class UI {
           const btn = eq ? `<button class="btn green" disabled>${ico('check', 16)} Kullanımda</button>` : owned ? `<button class="btn blue" data-act="equip" data-id="${it.id}">Kullan</button>` : `<button class="btn gold" data-act="buy" data-id="${it.id}">${ico('coin', 18)} ${it.price}</button>`;
           return `<div class="card ${eq ? 'eq' : ''}">${owned ? '' : `<span class="tag lock">${ico('lock', 10)}</span>`}${sw}<div class="nm">${it.name}</div><div class="ds">${it.desc}</div>${btn}</div>`;
         }).join('')}</div>`;
+      } else if (tab === 'coins') {
+        const ok = G.iap.available();
+        body = `<p>${ok ? 'Jeton paketlerini Google Play ile satın alabilirsin.' : '<b>Gerçek parayla satın alma bu sürümde kapalı.</b> Google Play Faturalandırma kurulumu yapılmadan jeton satılmaz (README).'}</p><div class="list">${IAP.packs.map((pk) => `<div class="item"><div>${ico('coin', 34)}</div><div class="grow"><b>${pk.coins.toLocaleString('tr-TR')} jeton</b><small style="display:block;color:#58649a">${pk.label}</small></div><button class="btn gold" data-act="iap" data-id="${pk.id}" ${ok ? '' : 'disabled'}>Satın al</button></div>`).join('')}</div>`;
       } else if (tab === 'power') {
         body = `<div class="list">${Object.entries(POWER_INFO).map(([k, p]) => `<div class="item"><div style="color:#2f6bff">${ico({ undo: 'undo', hint: 'hint', recall: 'recall', call: 'call', extraSlot: 'plus', moves: 'play', time: 'clock' }[k], 30)}</div><div class="t"><b>${p.name} <span style="color:#c98a00">×${d.powerups[k] || 0}</span></b><small>${p.desc}</small></div><div style="display:flex;flex-direction:column;gap:5px"><button class="btn gold" data-act="buypower" data-id="${k}">${ico('coin', 16)} ${p.price}</button>${ADS.mode !== 'off' ? `<button class="btn green" data-act="adpower" data-id="${k}">${ico('ad', 16)} +1</button>` : ''}</div></div>`).join('')}</div>`;
       } else {
@@ -148,6 +151,7 @@ export class UI {
       buypower: (ds) => { if (G.buyPower(ds.id)) render(); },
       adpower: async (ds) => { if (await G.adPower(ds.id)) render(); },
       permslot: () => { if (G.buyPermSlot()) render(); },
+      iap: async (ds) => { if (await G.buyCoinPack(ds.id)) render(); },
     });
     return c;
   }
@@ -177,7 +181,7 @@ export class UI {
     const pv = new Preview(c.q('.preview')); c.preview = pv;
     const showModel = () => {
       const eq = d.equipped;
-      pv.show(cat === 'vipSkin' ? { vip: true, vipSkin: id, rim: eq.rim, len: 3 } : { style: id, rim: eq.rim, palette: eq.palette, colorIndex: 0, len: id === 'coach' ? 4 : id === 'mini' ? 2 : 3 });
+      pv.show(cat === 'vipSkin' ? { vip: true, vipSkin: id, rim: eq.rim, len: 3 } : { style: id, rim: eq.rim, palette: eq.palette, colorIndex: 0, len: id === 'coach' || id === 'luxury' ? 4 : id === 'mini' ? 2 : 3 });
     };
     showModel();
     const foot = () => {
@@ -361,15 +365,19 @@ export class UI {
     const c = this.modal({ title: 'Otobüsü Değiştir', head: 'purple', body: '', foot: '' });
     const render = () => {
       const colors = busInfo.colors.map((ci) => `<button class="opt ${sel?.type === 'color' && sel.v === ci ? 'sel' : ''}" data-act="pickc" data-v="${ci}"><div class="dotc" style="background:${hex6(PALETTES[G.save.data.equipped.palette][ci])}"></div>${COLORS[ci].name}</button>`).join('');
-      c.setBody(`<p>Seçili otobüsün rengini veya boyutunu değiştir. Kapasite, boyut ve hareket kuralları otomatik güncellenir; bulmaca bozulmaz.</p>
+      const sizeOpts = [];
+      if (busInfo.canSeat) sizeOpts.push(`<button class="opt ${sel?.type === 'seat' ? 'sel' : ''}" data-act="picks"><div style="color:#2fb36a">${ico('people', 34)}</div>Koltuk ekle<small style="color:#58649a">${busInfo.seats} → ${busInfo.seats + 1} koltuk</small></button>`);
+      if (busInfo.canGrow) sizeOpts.push(`<button class="opt ${sel?.type === 'grow' ? 'sel' : ''}" data-act="pickg"><div style="color:#7a4dff">${ico('bus', 34)}</div>Uzat<small style="color:#58649a">${busInfo.seats} → ${busInfo.seats + 2} koltuk</small></button>`);
+      c.setBody(`<p>Seçili otobüsün rengini değiştir ya da kapasitesini artır. Daha çok koltuk, o renkten daha çok yolcuyu taşır; bulmaca bozulmaz.</p>
         ${busInfo.colors.length ? `<b>Renk (kapasite ${busInfo.seats} sabit)</b><div class="opts" style="margin-top:6px">${colors}</div>` : '<p style="color:#58649a">Kalan yolcu renkleri için başka renk yok.</p>'}
-        ${busInfo.canGrow ? `<b>Tür</b><div class="opts" style="margin-top:6px"><button class="opt ${sel?.type === 'grow' ? 'sel' : ''}" data-act="pickg"><div style="color:#7a4dff">${ico('bus', 34)}</div>Büyüt<small style="color:#58649a">${busInfo.seats} → ${busInfo.seats + 2} koltuk</small></button></div>` : ''}
-        <p style="font-size:12px;color:#58649a">Bu seviyede kalan dönüştürme hakkı: <b>${busInfo.left}</b></p>`);
-      c.setFoot(sel ? `<button class="btn gold" data-act="ad">${ico('ad', 22)} Reklam izle ve uygula</button><button class="btn orange" data-act="coin">${ico('coin', 22)} ${PRICES.convert} jeton ile uygula</button>` : `<button class="btn gray" disabled>Bir seçenek seç</button>`);
+        ${sizeOpts.length ? `<b>Kapasite</b><div class="opts" style="margin-top:6px">${sizeOpts.join('')}</div>` : ''}
+        <p style="font-size:12px;color:#58649a">Bu seviyede kalan hak: <b>${busInfo.left}</b></p>`);
+      const price = sel?.type === 'seat' ? PRICES.seat : PRICES.convert;
+      c.setFoot(sel ? `<button class="btn gold" data-act="ad">${ico('ad', 22)} Reklam izle ve uygula</button><button class="btn orange" data-act="coin">${ico('coin', 22)} ${price} jeton ile uygula</button>` : `<button class="btn gray" disabled>Bir seçenek seç</button>`);
     };
     render();
     this.onAct(c, {
-      pickc: (ds) => { sel = { type: 'color', v: +ds.v }; render(); }, pickg: () => { sel = { type: 'grow' }; render(); },
+      pickc: (ds) => { sel = { type: 'color', v: +ds.v }; render(); }, pickg: () => { sel = { type: 'grow' }; render(); }, picks: () => { sel = { type: 'seat' }; render(); },
       ad: async () => { if (await G.applyConvert(busInfo.id, sel, 'ad')) c.close(); }, coin: async () => { if (await G.applyConvert(busInfo.id, sel, 'coin')) c.close(); },
     });
   }

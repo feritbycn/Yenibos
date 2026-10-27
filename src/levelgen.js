@@ -106,13 +106,17 @@ export function genStage(seed, p) {
   const rng = makeRng(seed);
   const { normal, vips } = genBuses(rng, p);
   const queue = buildQueue(rng, normal, p);
+  // Minibüsler: uzunluğunun alabileceğinden 1 koltuk az (örn. 4 yerine 3). Kuyruktan o renkten 1 yolcu çıkar → toplam yine birebir.
+  if (p.mini) for (const b of normal) {
+    if (b.l >= 2 && rng() < p.mini) { const at = queue.lastIndexOf(b.c); if (at >= 0) { queue.splice(at, 1); b.s = b.l * 2 - 1; } }
+  }
   const buses = [...normal, ...vips];
   // id'leri karıştır (çözüm sırası ipucu vermesin); par = çözüm sırası (id listesi)
   const idxs = buses.map((_, i) => i);
   rng.shuffle(idxs);
   const outBuses = idxs.map((orig) => ({ ...buses[orig] }));
   const par = normal.map((_, i) => idxs.indexOf(i));
-  const clean = outBuses.map((b) => (b.v ? { v: 1, l: b.l, d: b.d, x: b.x, y: b.y } : { c: b.c, l: b.l, d: b.d, x: b.x, y: b.y }));
+  const clean = outBuses.map((b) => (b.v ? { v: 1, l: b.l, d: b.d, x: b.x, y: b.y } : { c: b.c, l: b.l, d: b.d, x: b.x, y: b.y, ...(b.s ? { s: b.s } : {}) }));
   return { w: p.w, h: p.h, buses: clean, queue, par };
 }
 
@@ -141,6 +145,7 @@ export function levelParams(n) {
     if (n % 5 === 0) { const second = { ...stages[0], count: stages[0].count - 4, vip: 0 }; stages.push(second); extra.timeSpare = 30; }
     if (n % 7 === 0) extra.moveSpare = 3;
   }
+  if (n >= 6) for (const st of stages) st.mini = Math.min(0.3, 0.12 + n * 0.006);   // 6. seviyeden itibaren bazı otobüsler minibüs (3/5 koltuk)
   return { stages, extra };
 }
 

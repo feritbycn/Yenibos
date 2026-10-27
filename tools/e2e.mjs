@@ -28,7 +28,7 @@ check('Ana menü görünür', await ev(() => !document.getElementById('menu').hi
 await shot('01_menu_daily');
 // günlük ödül
 await pg.click('[data-act=claim]'); await pg.waitForTimeout(300);
-const coins1 = (await state()).coins; check('Günlük ödül jeton ekledi', coins1 === 170, 'coins=' + coins1);
+const coins1 = (await state()).coins; check('Günlük ödül jeton ekledi', coins1 === 80, 'coins=' + coins1);
 await pg.click('.sheet-x'); await pg.waitForTimeout(200);
 await shot('02_menu');
 
