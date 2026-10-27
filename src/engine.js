@@ -1,5 +1,5 @@
 // Saf bulmaca motoru (render'dan bağımsız). Hem oyun hem çözücü/test aynı kuralları kullanır.
-import { SEATS_PER_CELL, VIP_COLOR, VIP_LEN, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE, QUEUE_WINDOW } from './config.js';
+import { SEATS_PER_CELL, TAXI_SEATS, VIP_COLOR, VIP_LEN, VIP_SEATS, SLOTS_TOTAL, SLOTS_BASE, QUEUE_WINDOW } from './config.js';
 
 export const DIRS = {
   U: { x: 0, y: -1, horiz: false },
@@ -8,7 +8,9 @@ export const DIRS = {
   R: { x: 1, y: 0, horiz: true },
 };
 
-export function seatsOf(len, vip) { return vip ? VIP_SEATS : len * SEATS_PER_CELL; }
+/** Aracın taşıyabileceği en çok koltuk: 1 hücrelik küçük araç = taksi (4 kişilik), diğerleri uzunluk × 2. */
+export function capOf(len) { return len === 1 ? TAXI_SEATS : len * SEATS_PER_CELL; }
+export function seatsOf(len, vip) { return vip ? VIP_SEATS : capOf(len); }
 
 /** Aşama verisinden (level stage) oyun durumu üretir. */
 export function makeState(stage, opts = {}) {
@@ -261,7 +263,7 @@ export function convertColor(s, id, color) {
 /** Otobüs dönüştürme: kuyruk tarafına 1 hücre uzat (yer varsa). Kapasite/boyut güncellenir. */
 export function canGrow(s, id) {
   const b = s.buses[id];
-  if (!b || b.st !== 'board' || b.vip || b.len >= 4) return null;
+  if (!b || b.st !== 'board' || b.vip || b.len < 2 || b.len >= 4) return null;   // taksi (1 hücre) uzatılamaz
   const d = DIRS[b.dir];
   const occ = occupancy(s, id);
   // kuyruk hücresi: hareket yönünün tersi
@@ -284,7 +286,7 @@ export function grow(s, id) {
 }
 
 /** Koltuk ekle: otobüs uzunluğunun alabileceği en fazla koltuğa kadar +1 (örn. 3 → 4). */
-export function canAddSeat(s, id) { const b = s.buses[id]; return !!b && b.st === 'board' && !b.vip && b.seats < b.len * SEATS_PER_CELL; }
+export function canAddSeat(s, id) { const b = s.buses[id]; return !!b && b.st === 'board' && !b.vip && b.seats < capOf(b.len); }
 export function addSeat(s, id) { if (!canAddSeat(s, id)) return { ok: false, reason: 'full' }; s.buses[id].seats++; return { ok: true }; }
 
 export function passengersLeft(s) { return s.queue.length - s.qi; }

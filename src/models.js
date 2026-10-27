@@ -100,11 +100,85 @@ export function busLength(len) { return len * 1.0 - 0.12; }
 export const BUS_WIDTH = 0.76;
 export const PARK_SCALE = { 1: 0.85, 2: 0.8, 3: 0.75, 4: 0.72 };
 
+
+// ---------- Taksi (1 hücrelik küçük araç, 4 kişilik) ----------
+function checkerTexture() {
+  return cached('checker', () => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32; const g = c.getContext('2d');
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#14171f' : '#ffffff'; g.fillRect(i * 16, j * 16, 16, 16); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  });
+}
+function buildTaxi(o) {
+  const Lz = busLength(1), W = BUS_WIDTH;
+  const g = new THREE.Group();
+  const bodyMat = paint(o.hex), roofMat = paint(lighten(o.hex, 0.12));
+  const parts = { wheels: [], seatMarks: [], body: [], bodyMat, style: 'taxi' };
+  const y0 = 0.1;
+  const low = new THREE.Mesh(rbox(W - 0.02, 0.27, Lz, 0.12), bodyMat); low.position.y = y0 + 0.135; low.castShadow = true; g.add(low); parts.body.push(low);
+  // kabin (arka tarafa kaydırılmış, kısa)
+  const cabL = Lz * 0.62, cabH = 0.25, cabY = y0 + 0.27, cz = Lz * 0.08;
+  const interior = new THREE.Mesh(rbox(W - 0.16, cabH, cabL - 0.04, 0.03), M.interior()); interior.position.set(0, cabY + cabH / 2, cz); g.add(interior);
+  const roof = new THREE.Mesh(rbox(W - 0.1, 0.07, cabL + 0.04, 0.04), roofMat); roof.position.set(0, cabY + cabH + 0.03, cz); roof.castShadow = true; g.add(roof); parts.body.push(roof);
+  const roofTop = cabY + cabH + 0.065;
+  for (let side = -1; side <= 1; side += 2) {
+    const gl = new THREE.Mesh(rbox(0.03, cabH - 0.04, cabL - 0.1, 0.012, 2), M.glass()); gl.position.set(side * (W / 2 - 0.09), cabY + cabH / 2, cz); g.add(gl);
+  }
+  const ws = new THREE.Mesh(rbox(W - 0.2, cabH - 0.04, 0.03, 0.012, 2), M.glass()); ws.position.set(0, cabY + cabH / 2, cz - cabL / 2 + 0.01); ws.rotation.x = -0.25; g.add(ws);
+  const rw = ws.clone(); rw.position.z = cz + cabL / 2 - 0.01; rw.rotation.x = 0.25; g.add(rw);
+  // damalı şerit (her iki yan)
+  for (let side = -1; side <= 1; side += 2) {
+    const st = new THREE.Mesh(new THREE.PlaneGeometry(Lz - 0.14, 0.07), new THREE.MeshBasicMaterial({ map: checkerTexture() }));
+    st.rotation.y = side * Math.PI / 2; st.position.set(side * (W / 2 - 0.009), y0 + 0.15, 0); g.add(st);
+  }
+  // çatı TAXI tabelası (yanan)
+  const signTex = plateTexture('TAXI', '#2a1a00', '#ffd23f');
+  const signM = [mat('taxiside', () => new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xffb800, emissiveIntensity: 0.7 })), new THREE.MeshStandardMaterial({ map: signTex, emissive: 0xffc400, emissiveMap: signTex, emissiveIntensity: 0.6 })];
+  const sign = new THREE.Mesh(rbox(0.3, 0.09, 0.14, 0.02, 2), signM[0]); sign.position.set(0, roofTop + 0.045, cz); g.add(sign);
+  for (const sd of [-1, 1]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.075), signM[1]); f.position.set(0, roofTop + 0.045, cz + sd * 0.0715); f.rotation.y = sd > 0 ? 0 : Math.PI; g.add(f); }
+  // tampon, farlar, stoplar, ızgara
+  const fb = new THREE.Mesh(rbox(W - 0.06, 0.07, 0.07, 0.03, 2), M.bumper()); fb.position.set(0, y0 + 0.06, -Lz / 2 + 0.01); g.add(fb);
+  const rb = fb.clone(); rb.position.z = Lz / 2 - 0.01; g.add(rb);
+  for (let side = -1; side <= 1; side += 2) {
+    const hl = new THREE.Mesh(cached('hl', () => new THREE.SphereGeometry(0.058, 12, 8)), M.head()); hl.scale.set(1, 0.8, 0.5); hl.position.set(side * 0.22, y0 + 0.2, -Lz / 2 + 0.01); g.add(hl);
+    const tl = new THREE.Mesh(cached('tl', () => new THREE.BoxGeometry(0.1, 0.045, 0.03)), M.tail()); tl.position.set(side * 0.24, y0 + 0.22, Lz / 2 - 0.005); g.add(tl);
+  }
+  const grill = new THREE.Mesh(rbox(0.22, 0.06, 0.03, 0.015, 2), M.dark()); grill.position.set(0, y0 + 0.17, -Lz / 2 + 0.008); g.add(grill);
+  // tekerlekler
+  const rimM = rimMaterial(o.rim || 'steel');
+  for (const z of [-Lz / 2 + 0.22, Lz / 2 - 0.22]) for (let side = -1; side <= 1; side += 2) {
+    const arch = new THREE.Mesh(cached('arch', () => new THREE.CircleGeometry(0.2, 20)), mat('archm', () => new THREE.MeshStandardMaterial({ color: 0x1a1e28, roughness: 0.9 })));
+    arch.rotation.y = side * Math.PI / 2; arch.position.set(side * (W / 2 - 0.004), 0.17, z); g.add(arch);
+    const wh = new THREE.Group();
+    const tire = new THREE.Mesh(cached('tire', () => new THREE.CylinderGeometry(0.15, 0.15, 0.12, 20)), M.tire()); tire.rotation.z = Math.PI / 2; tire.castShadow = true;
+    const hub = new THREE.Mesh(cached('hub', () => new THREE.CylinderGeometry(0.085, 0.085, 0.125, 16)), rimM); hub.rotation.z = Math.PI / 2;
+    const sp = new THREE.Mesh(cached('spoke', () => new THREE.BoxGeometry(0.13, 0.15, 0.02)), M.dark()); sp.position.x = side * 0.05; sp.scale.set(1, 0.7, 1);
+    const sp2 = sp.clone(); sp2.rotation.x = Math.PI / 2;
+    wh.add(tire, hub, sp, sp2); wh.position.set(side * (W / 2 - 0.04), 0.15, z); g.add(wh); parts.wheels.push(wh);
+  }
+  // 4 koltuk (2x2)
+  const seatN = o.seats || 4;
+  for (let i = 0; i < seatN; i++) {
+    const r = Math.floor(i / 2), cI = i % 2;
+    const m = new THREE.Mesh(cached('seathead', () => new THREE.SphereGeometry(0.075, 12, 10)), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }));
+    m.position.set((cI === 0 ? -1 : 1) * 0.15, cabY + cabH * 0.55, cz + (r === 0 ? -0.1 : 0.1)); m.scale.setScalar(0.92);
+    const body = new THREE.Mesh(cached('seatbody', () => new THREE.CapsuleGeometry(0.07, 0.05, 4, 8)), m.material); body.position.set(0, -0.1, 0); m.add(body);
+    m.visible = false; g.add(m); parts.seatMarks.push(m);
+  }
+  if (!o.noArrow) {
+    const arrow = new THREE.Mesh(cached('arrowplane', () => new THREE.PlaneGeometry(1, 1)), new THREE.MeshBasicMaterial({ map: arrowTexture(), transparent: true, depthWrite: false }));
+    arrow.rotation.x = -Math.PI / 2; arrow.scale.set(0.42, 0.42, 1); arrow.position.set(0, roofTop + 0.105, -Lz * 0.2 + cz * 0.5); arrow.renderOrder = 3; g.add(arrow); parts.arrow = arrow;
+  }
+  g.userData.parts = parts; g.userData.dims = { Lz, W, roofTop: roofTop + 0.09 };
+  return g;
+}
+
 /**
  * @param {{len:number, hex:number, style?:string, vip?:boolean, rim?:string, vipSkin?:string, seats:number, noArrow?:boolean}} o
  * Yerel eksen: uzunluk Z, ön = -Z, yukarı = +Y.
  */
 export function buildBus(o) {
+  if (o.len === 1 && !o.vip) return buildTaxi(o);
   const style = o.vip ? 'coach' : (o.style || 'city');
   const Lz = busLength(o.len);
   const W = BUS_WIDTH;
@@ -282,7 +356,8 @@ export function recolorBus(group, hex) {
   const m = p.style === 'luxury' ? paintLux(hex) : paint(hex);
   for (const mesh of p.body) mesh.material = m;
   // tavan: stile göre
-  if (p.style === 'luxury') p.body[1].material = paintLux(lighten(hex, 0.06));
+  if (p.style === 'taxi') p.body[1].material = paint(lighten(hex, 0.12));
+  else if (p.style === 'luxury') p.body[1].material = paintLux(lighten(hex, 0.06));
   else p.body[1].material = p.style === 'modern' ? paint(darken(hex, 0.08)) : paint(lighten(hex, 0.12));
   p.bodyMat = m;
 }

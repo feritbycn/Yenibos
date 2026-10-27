@@ -1,0 +1,24 @@
+<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bus Puzzle — Yönetim</title>
+<style>body{font:14px system-ui;margin:0;background:#f3f5fb;color:#16224d}header{background:#2b3b7a;color:#fff;padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}main{padding:16px;max-width:980px;margin:auto}table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}th,td{padding:8px 10px;border-bottom:1px solid #e3e8fa;text-align:left}tr:hover td{background:#f0f4ff;cursor:pointer}input,button,textarea{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid #b8c0e0}button{background:#2f6bff;color:#fff;border:0;cursor:pointer}.card{background:#fff;border-radius:12px;padding:14px;margin:14px 0}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}small{color:#58649a}pre{background:#f3f5fb;padding:8px;border-radius:8px;overflow:auto}</style>
+<header><b>Bus Puzzle — Yönetim</b><input id="key" type="password" placeholder="ADMIN_KEY" size="22"><button id="go">Bağlan</button><span id="msg"></span></header>
+<main><div class="card"><div class="row"><b>Haftalık sıralama</b><button id="close">Biten haftaları kapat ve ödülleri dağıt</button></div><div id="wk"></div></div>
+<div class="card"><b>Oyuncular</b><div id="users"></div></div><div class="card" id="detail" hidden></div></main>
+<script>
+const $=s=>document.querySelector(s);let K='';
+const api=async(m,p,b)=>{const r=await fetch(p,{method:m,headers:{'content-type':'application/json','x-admin-key':K},body:b?JSON.stringify(b):undefined});return r.json()};
+const t=ms=>ms?new Date(ms).toLocaleString('tr-TR'):'-';
+async function load(){const u=await api('GET','/admin/api/users');if(!u.ok){$('#msg').textContent='Anahtar hatalı';return}$('#msg').textContent='Bağlandı · hafta '+u.week;
+$('#users').innerHTML='<table><tr><th>Ad</th><th>Seviye</th><th>Jeton</th><th>Son görülme</th><th>Bekleyen hediye</th></tr>'+u.users.map(x=>`<tr data-id="${x.uid}"><td>${x.name}${x.banned?' 🚫':''}</td><td>${x.level}</td><td>${x.coins}</td><td>${t(x.lastSeen)}</td><td>${x.pending}</td></tr>`).join('')+'</table>';
+const w=await api('GET','/admin/api/weekly');$('#wk').innerHTML='<table><tr><th>#</th><th>Ad</th><th>Puan</th></tr>'+w.top.map((e,i)=>`<tr><td>${i+1}</td><td>${e.name}</td><td>${e.score}</td></tr>`).join('')+'</table>';
+document.querySelectorAll('#users tr[data-id]').forEach(tr=>tr.onclick=()=>show(tr.dataset.id))}
+async function show(id){const r=await api('GET','/admin/api/users/'+id);const u=r.user;const d=$('#detail');d.hidden=false;
+d.innerHTML=`<b>${u.name}</b> <small>${u.uid}</small><pre>${JSON.stringify(u.profile,null,1)}</pre><small>Bu hafta puanı: ${r.weekScore} · Son 20 skor kaydı: ${(u.log||[]).length}</small>
+<div class="row" style="margin-top:10px"><input id="gc" type="number" placeholder="Jeton" style="width:110px"><input id="gp" placeholder="Güç: undo=2,hint=1" size="22"><input id="gi" placeholder="Öğe: style=luxury,vipSkin=royal" size="30"><input id="gn" placeholder="Not" size="22"><button id="gg">Hediye gönder</button><button id="gb" style="background:#e02a45">${u.banned?'Yasağı kaldır':'Yasakla'}</button></div><small>Hediye, oyuncu internete bağlanınca otomatik teslim edilir.</small>`;
+$('#gg').onclick=async()=>{const b={note:$('#gn').value||undefined};if($('#gc').value)b.coins=+$('#gc').value;const kv=s=>Object.fromEntries(s.split(',').filter(Boolean).map(x=>x.split('=').map(y=>y.trim())));
+if($('#gp').value){b.powerups={};for(const[k,v]of Object.entries(kv($('#gp').value)))b.powerups[k]=+v}
+if($('#gi').value){b.items={};for(const[k,v]of Object.entries(kv($('#gi').value)))b.items[k]=[v]}
+const o=await api('POST','/admin/api/users/'+id+'/grant',b);$('#msg').textContent=o.ok?'Hediye sıraya alındı':'Hata: '+o.reason;load()};
+$('#gb').onclick=async()=>{await api('POST','/admin/api/users/'+id+'/ban',{banned:!u.banned});load();show(id)}}
+$('#go').onclick=()=>{K=$('#key').value;load()};$('#close').onclick=async()=>{const o=await api('POST','/admin/api/weekly/close');$('#msg').textContent=o.changed?'Ödüller dağıtıldı':'Kapatılacak hafta yok';load()};
+</script></html>

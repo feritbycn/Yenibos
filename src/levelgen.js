@@ -1,5 +1,5 @@
 // Çözülebilirliği yapı gereği garanti eden seviye üretici + parametre tablosu.
-import { DIRS, cellsOf, pathCells, seatsOf } from './engine.js';
+import { DIRS, cellsOf, pathCells, seatsOf, capOf } from './engine.js';
 import { makeRng } from './rng.js';
 import { VIP_LEN } from './config.js';
 
@@ -106,9 +106,9 @@ export function genStage(seed, p) {
   const rng = makeRng(seed);
   const { normal, vips } = genBuses(rng, p);
   const queue = buildQueue(rng, normal, p);
-  // Minibüsler: uzunluğunun alabileceğinden 1 koltuk az (örn. 4 yerine 3). Kuyruktan o renkten 1 yolcu çıkar → toplam yine birebir.
+  // Küçük araçlar: alabileceğinden 1 koltuk az (örn. taksi 3/4, minibüs 3/4). Kuyruktan o renkten 1 yolcu çıkar → toplam koltuk = yolcu (birebir).
   if (p.mini) for (const b of normal) {
-    if (b.l >= 2 && rng() < p.mini) { const at = queue.lastIndexOf(b.c); if (at >= 0) { queue.splice(at, 1); b.s = b.l * 2 - 1; } }
+    if (rng() < p.mini) { const at = queue.lastIndexOf(b.c); if (at >= 0) { queue.splice(at, 1); b.s = capOf(b.l) - 1; } }
   }
   const buses = [...normal, ...vips];
   // id'leri karıştır (çözüm sırası ipucu vermesin); par = çözüm sırası (id listesi)

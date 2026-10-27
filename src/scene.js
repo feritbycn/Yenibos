@@ -65,7 +65,7 @@ export class GameScene {
     this.state = null;
     this.tweens = []; this.busVis = new Map(); this.passengers = new Map(); this.walkers = new Set();
     this.glows = new Map(); this.labels = new Map();
-    this.stripBusy = false; this.boardCd = 0; this.idleFired = true; this.celebrating = [];
+    this.stripBusy = false; this.boardCd = 0; this.idleFired = true; this.celebrating = []; this.alertEnabled = false; this.alertSlot = -1;
     this.slotHold = new Array(SLOTS_TOTAL + 1).fill(false);
     this.sfx = () => {}; this.onBusTap = null; this.onSlotTap = null; this.onIdle = null; this.onBoarded = null; this.onBusDepart = null; this.onBusArrive = null;
     this.tapFilter = null; this.time = 0; this.slotMeshes = []; this.slotTexKinds = [];
@@ -135,28 +135,64 @@ export class GameScene {
     // kaldırım kenarı
     const curb = new THREE.MeshStandardMaterial({ color: 0xf4f7fb, roughness: 0.5 });
     const cb = new THREE.Mesh(new THREE.BoxGeometry(9.9, 0.14, 0.14), curb); cb.position.set(0, 0.07, -1.55); cb.castShadow = true; s.add(cb);
-    // yolcu bekleme alanı raylar
-    const qW = COLS * SPC + 0.9, qZf = QZ0 + 0.55, qZb = QZ0 - (ROWS - 1) * ROWSP - 0.55;
-    const railM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
-    const rail = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), railM); m.position.set(x, 0.15, z); m.castShadow = true; m.receiveShadow = true; s.add(m); };
-    rail(0.18, qZf - qZb, -qW / 2, (qZf + qZb) / 2); rail(0.18, qZf - qZb, qW / 2, (qZf + qZb) / 2); rail(qW, 0.18, 0, qZb);
-    rail(1.1, 0.18, -qW / 2 + 0.55, qZf); rail(1.1, 0.18, qW / 2 - 0.55, qZf);
-    const qFloor = new THREE.Mesh(this.roundedPlate(qW - 0.1, qZf - qZb, 0.15), new THREE.MeshStandardMaterial({ color: 0xcfdbe9, roughness: 0.8 }));
-    qFloor.position.set(0, 0.02, (qZf + qZb) / 2); qFloor.receiveShadow = true; s.add(qFloor);
+    // yolcu bekleme platformu: modern kaide, cam korkuluk, ikaz kenarı ve yanıp sönen yeşil ÇIKIŞ kapısı
+    const qW = COLS * SPC + 0.9, qZf = QZ0 + 0.55, qZb = QZ0 - (ROWS - 1) * ROWSP - 0.55, qD = qZf - qZb, qCz = (qZf + qZb) / 2;
+    const baseP = new THREE.Mesh(this.roundedPlate(qW + 0.55, qD + 0.5, 0.4), new THREE.MeshStandardMaterial({ color: 0x4b5a8c, roughness: 0.6 }));
+    baseP.position.set(0, 0.018, qCz - 0.05); baseP.receiveShadow = true; s.add(baseP);
+    const floorTex = canvasTex(512, 512, (g, w, h) => {
+      g.fillStyle = '#dde6f4'; g.fillRect(0, 0, w, h);
+      const n = 8; for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = (x + y) % 2 ? '#d3deef' : '#e6edf8'; g.fillRect(x * 64 + 2, y * 64 + 2, 60, 60); }
+    });
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(qW / 3.4, qD / 3.4);
+    const qFloor = new THREE.Mesh(this.roundedPlate(qW - 0.05, qD - 0.05, 0.25), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.75 }));
+    qFloor.position.set(0, 0.034, qCz); qFloor.receiveShadow = true; s.add(qFloor);
     this.queueBack = qZb;
-    // KAPI: ilk QUEUE_WINDOW yolcu (kapıdakiler) aynı anda uygun otobüse binebilir; zemin işaretiyle belirgin
+    // cam korkuluk (sol, sağ, arka) + krom üst çıta; önde kapı yanlarında kısa dönüşler
+    const glassM = new THREE.MeshBasicMaterial({ color: 0xa9dcff, transparent: true, opacity: 0.3, depthWrite: false });
+    const chromeM = new THREE.MeshStandardMaterial({ color: 0xf2f5fb, metalness: 0.9, roughness: 0.18 });
+    const panel = (w, d, x, z) => {
+      const gl = new THREE.Mesh(new THREE.BoxGeometry(w, 0.34, d), glassM); gl.position.set(x, 0.2, z); gl.renderOrder = 4; s.add(gl);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(w + (d < w ? 0.05 : 0), 0.05, d + (w < d ? 0.05 : 0)), chromeM); top.position.set(x, 0.395, z); top.castShadow = true; s.add(top);
+    };
+    panel(0.05, qD, -qW / 2, qCz); panel(0.05, qD, qW / 2, qCz); panel(qW, 0.05, 0, qZb);
+    panel(0.9, 0.05, -qW / 2 + 0.45, qZf); panel(0.9, 0.05, qW / 2 - 0.45, qZf);
+    for (const [x, z] of [[-qW / 2, qZb], [qW / 2, qZb], [-qW / 2, qZf], [qW / 2, qZf]]) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.46, 10), chromeM); post.position.set(x, 0.23, z); post.castShadow = true; s.add(post); }
+    // ikaz kenarı (sarı-siyah) önde
+    const hazTex = canvasTex(512, 32, (g, w, h) => { g.fillStyle = '#ffd23f'; g.fillRect(0, 0, w, h); g.fillStyle = '#20232e'; for (let x = -h; x < w + h; x += 44) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 22, h); g.lineTo(x + 22 + h, 0); g.lineTo(x + h, 0); g.closePath(); g.fill(); } });
+    hazTex.wrapS = THREE.RepeatWrapping; hazTex.repeat.set(qW / 4.2, 1);
+    const haz = new THREE.Mesh(new THREE.PlaneGeometry(qW - 0.1, 0.13), new THREE.MeshBasicMaterial({ map: hazTex })); haz.rotation.x = -Math.PI / 2; haz.position.set(0, 0.043, qZf - 0.02); s.add(haz);
+    // ÇIKIŞ KAPISI: ilk QUEUE_WINDOW yolcu (kapıdakiler) aynı anda uygun otobüse binebilir
     {
-      const gw = QUEUE_WINDOW * SPC + 0.16, gd = ROWSP + 0.12;
-      const tex = canvasTex(256, 96, (g, w, h) => {
-        const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, 'rgba(255,214,90,.85)'); gr.addColorStop(1, 'rgba(255,170,40,.85)');
-        g.fillStyle = gr; g.beginPath(); g.roundRect(6, 6, w - 12, h - 12, 22); g.fill();
-        g.lineWidth = 6; g.strokeStyle = '#fff'; g.setLineDash([18, 10]); g.stroke();
-        g.setLineDash([]); g.fillStyle = 'rgba(120,60,0,.75)'; g.font = '900 30px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText('KAPI  \u25BC', w / 2, h / 2 + 1);
+      const gw = QUEUE_WINDOW * SPC + 0.22;
+      const zFront = qZf + 0.5, zBack = QZ0 - 0.36, gd = zFront - zBack, gx = ((QUEUE_WINDOW - 1) / 2 - (COLS - 1) / 2) * SPC, gz = (zFront + zBack) / 2;
+      this.gateInfo = { x: gx, zFront, zBack, w: gw };
+      // akan oklar (güneye/yola doğru)
+      const chev = canvasTex(256, 256, (g, w, h) => {
+        const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#34d77b'); gr.addColorStop(1, '#16a853'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+        g.strokeStyle = 'rgba(255,255,255,.92)'; g.lineWidth = 22; g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); g.moveTo(48, 84); g.lineTo(w / 2, 150); g.lineTo(w - 48, 84); g.stroke();
       });
-      const gate = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
-      gate.rotation.x = -Math.PI / 2; gate.position.set(((QUEUE_WINDOW - 1) / 2 - (COLS - 1) / 2) * SPC, 0.045, QZ0); gate.renderOrder = 2;
-      s.add(gate); this.gate = gate;
+      chev.wrapS = chev.wrapT = THREE.RepeatWrapping; chev.repeat.set(1, Math.max(1, Math.round(gd / 0.55)));
+      const flow = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd), new THREE.MeshBasicMaterial({ map: chev, transparent: true, depthWrite: false }));
+      flow.rotation.x = -Math.PI / 2; flow.position.set(gx, 0.044, gz); flow.renderOrder = 2; s.add(flow); this.gateFlow = chev; this.gate = flow;
+      // çerçeve + yazı (sabit)
+      const frame = canvasTex(256, 192, (g, w, h) => {
+        g.clearRect(0, 0, w, h);
+        g.lineWidth = 12; g.strokeStyle = '#ffffff'; g.beginPath(); g.roundRect(8, 8, w - 16, h - 16, 26); g.stroke();
+        g.lineWidth = 5; g.strokeStyle = '#0d7a38'; g.beginPath(); g.roundRect(15, 15, w - 30, h - 30, 20); g.stroke();
+        g.fillStyle = 'rgba(8,70,32,.88)'; g.beginPath(); g.roundRect(w / 2 - 74, h - 62, 148, 40, 14); g.fill();
+        g.fillStyle = '#ffffff'; g.font = '900 32px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ÇIKIŞ', w / 2, h - 41);
+      });
+      const fr = new THREE.Mesh(new THREE.PlaneGeometry(gw, gd), new THREE.MeshBasicMaterial({ map: frame, transparent: true, depthWrite: false }));
+      fr.rotation.x = -Math.PI / 2; fr.position.set(gx, 0.046, gz); fr.renderOrder = 3; s.add(fr); this.gateFrame = fr;
+      // iki yanda yeşil ışıklı direkler
+      this.gateLights = [];
+      for (const sd of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.62, 10), chromeM); post.position.set(gx + sd * (gw / 2 + 0.02), 0.31, zFront - 0.06); post.castShadow = true; s.add(post);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), new THREE.MeshStandardMaterial({ color: 0x7dffae, emissive: 0x1fe06a, emissiveIntensity: 1.2 })); cap.position.set(post.position.x, 0.66, post.position.z); s.add(cap);
+        const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0x4dff8f, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8 })); halo.scale.set(0.9, 0.9, 1); halo.position.copy(cap.position); s.add(halo);
+        this.gateLights.push({ cap, halo });
+      }
     }
     // dekor
     for (const [x, z] of [[-6.2, -2.8], [6.2, -2.8]]) { const l = buildLamp(); l.position.set(x, 0, z); if (x > 0) l.scale.x = -1; s.add(l); }
@@ -209,6 +245,51 @@ export class GameScene {
       m.userData.slotK = k; this.slotMeshes.push(m);
     }
     this.slotMeshes[0].material.map = this.slotTex.vip;
+    // yolcu biniş/dolum efekti için park yeri ışığı + "son park yeri" kırmızı alarmı
+    this.slotGlow = []; this.slotFxT = new Array(SLOTS_TOTAL + 1).fill(null);
+    for (let k = 0; k < SLOTS_TOTAL + 1; k++) {
+      const gm = new THREE.Mesh(new THREE.PlaneGeometry(SLOT_W + 0.9, SLOT_L + 0.9), new THREE.MeshBasicMaterial({ map: glowTexture(), color: 0xffffff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+      gm.rotation.x = -Math.PI / 2; gm.position.set(slotX(k), 0.055, SLOT_Z); gm.renderOrder = 3; this.scene.add(gm); this.slotGlow.push(gm);
+    }
+    this.alertGlow = new THREE.Mesh(new THREE.PlaneGeometry(SLOT_W + 1.2, SLOT_L + 1.2), new THREE.MeshBasicMaterial({ map: glowTexture(), color: 0xff1f2f, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.alertGlow.rotation.x = -Math.PI / 2; this.alertGlow.position.y = 0.06; this.alertGlow.renderOrder = 4; this.scene.add(this.alertGlow);
+    this.siren = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xff2030, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0 }));
+    this.siren.scale.set(1.5, 1.5, 1); this.scene.add(this.siren);
+    this.alertSlot = -1;
+  }
+
+  /** Park yerinde renkli ışık yanıp söner (yolcu bindi / otobüs doldu). */
+  pulseSlot(k, color = 0xffffff, power = 0.8, dur = 0.5) { this.slotFxT[k] = { t: 0, dur, power, color }; this.slotGlow[k].material.color.setHex(color); }
+
+  /** Tam 1 boş park yeri kaldığında (ve çıkacak otobüs varken) o yer kırmızı alarm verir. */
+  updateAlert(dt) {
+    const s = this.state; let idx = -1;
+    if (s && this.alertEnabled) {
+      const free = []; for (let i = 0; i < SLOTS_TOTAL; i++) if (s.slotOpen[i] && s.slots[i] === null) free.push(i);
+      if (free.length === 1 && s.buses.some((b) => b.st === 'board' && !b.vip)) idx = free[0];
+    }
+    if (idx !== this.alertSlot) {
+      if (this.alertSlot >= 0) { const m = this.slotMeshes[this.alertSlot + 1]; m.material.color.setRGB(1, 1, 1); }
+      this.alertSlot = idx;
+      this.container.parentElement?.classList.toggle('alert-last', idx >= 0);
+      const el = document.getElementById('lastSlot'); if (el) el.hidden = idx < 0;
+      if (idx >= 0) this.sfx('alarm');
+    }
+    const on = idx >= 0; const k = on ? idx + 1 : 0;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * 7.5);
+    if (on) {
+      const m = this.slotMeshes[k]; m.material.color.setRGB(1, 0.25 + 0.5 * (1 - pulse), 0.25 + 0.5 * (1 - pulse));
+      this.alertGlow.position.x = slotX(k); this.alertGlow.position.z = SLOT_Z; this.alertGlow.material.opacity = 0.25 + 0.65 * pulse;
+      this.siren.position.set(slotX(k), 0.95, SLOT_Z - SLOT_L / 2 - 0.05); this.siren.material.opacity = 0.35 + 0.65 * pulse; this.siren.scale.setScalar(1.1 + pulse * 0.7);
+    } else { this.alertGlow.material.opacity = 0; this.siren.material.opacity = 0; }
+    this.alertGlow.visible = this.siren.visible = on;
+    for (let i = 0; i < this.slotFxT.length; i++) {
+      const f = this.slotFxT[i]; const gm = this.slotGlow[i];
+      if (!f) { gm.material.opacity = 0; gm.visible = false; continue; }
+      gm.visible = true;
+      f.t += dt; const u = f.t / f.dur; gm.material.opacity = Math.max(0, (1 - u)) * f.power;
+      if (u >= 1) { this.slotFxT[i] = null; gm.material.opacity = 0; gm.visible = false; }
+    }
   }
 
   refreshSlots(state, tempSlots = []) {
@@ -444,6 +525,9 @@ export class GameScene {
     const poly = roundedPath(pts, 1.0); const L = pathLengths(poly);
     vis.departing = true; vis.depart = { poly, L, s: 0, v: 0, total: L[L.length - 1], slotK, slotIdx: b.slot };
     this.stripBusy = true; this.slotHold[slotK] = true;
+    { const px = g.position.x, pz = g.position.z;
+      this.fx.burst(px, 0.9, pz, 0xffe28a, 26, 3.4, true, 0.9); this.fx.ring(px, pz, 0xffe28a, 0.4, 2.4, 0.7); this.fx.ring(px, pz, 0x8cffb4, 0.2, 1.7, 0.55);
+      this.pulseSlot(slotK, 0xffe28a, 1.0, 0.7); this.sfx('full'); }
     E.depart(this.state, vis.id);
     this.removeLabel(vis.id);
     this.sfx('depart');
@@ -563,8 +647,12 @@ export class GameScene {
     this.walkers.delete(p); this.passGroup.remove(p);
     vis.vcount++; vis.vcolors.push(w.color);
     setBusPassengers(vis.g, vis.vcolors, (c) => (c === VIP_COLOR ? 0xffffff : this.hexOf(c)));
-    vis.bounce = Math.max(vis.bounce, 0.6);
-    this.fx.burst(vis.g.position.x, 0.8, vis.g.position.z - 0.5, this.hexOf(w.color), 7, 2.2, true, 0.55);
+    vis.bounce = Math.max(vis.bounce, 0.85);
+    const hx = this.hexOf(w.color); const bb = this.state.buses[vis.id]; const sk = bb.slot === 'V' ? 0 : bb.slot + 1;
+    this.fx.burst(vis.g.position.x, 0.8, vis.g.position.z - 0.5, hx, 9, 2.4, true, 0.6);          // otobüste kıvılcım
+    this.fx.ring(vis.g.position.x, vis.g.position.z, hx, 0.25, 1.25, 0.42);                           // park yerinde halka
+    this.pulseSlot(sk, hx, 0.75, 0.45);                                                              // park yeri ışığı
+    for (let i = 0; i < 3; i++) this.fx.stars.emit(vis.g.position.x + (Math.random() - 0.5) * 0.4, 0.9, vis.g.position.z + (Math.random() - 0.5) * 1.2, 0, 1.4, 0, 0xffffff, 0.6, 0.18, 0.0, 2, 0.8);
     this.sfx('board');
     this.onBoarded?.(w.color, this.state.buses[vis.id]);
     this.idleFired = false;
@@ -820,7 +908,9 @@ export class GameScene {
   updateLabels() {
     const s = this.state; if (!s) return;
     const rect = { w: this.container.clientWidth, h: this.container.clientHeight };
-    if (this.gate) this.gate.material.opacity = 0.82 + Math.sin(this.time * 3) * 0.18;
+    if (this.gateFlow) this.gateFlow.offset.y += 0.012;
+    if (this.gateLights) this.gateLights.forEach((l, i) => { const p = 0.5 + 0.5 * Math.sin(this.time * 4 + i * Math.PI); l.halo.material.opacity = 0.45 + 0.5 * p; l.halo.scale.setScalar(0.7 + 0.5 * p); l.cap.material.emissiveIntensity = 0.7 + 0.9 * p; });
+    if (this.gateFrame) this.gateFrame.material.opacity = 0.85 + Math.sin(this.time * 3) * 0.15;
     // "Kalan" tabelası: sırada kalan yolcu sayısı (kuyruğun solunda)
     if (!this.qsign) { this.qsign = document.createElement('div'); this.qsign.className = 'qsign'; this.qsign.innerHTML = '<b></b><span>Kalan</span>'; this.labelLayer.appendChild(this.qsign); }
     const left = s.queue.length - s.qi;
@@ -881,6 +971,7 @@ export class GameScene {
       for (const p of this.celebrating) { const u = p.userData; if (u.pop !== undefined) { u.pop += dt * 3; if (u.pop > 0) p.scale.setScalar(Math.min(1, ease.back(Math.min(1, u.pop)))); } }
       this.director(dt);
       this.updateLabels();
+      this.updateAlert(dt);
     }
     this.fx.update(dt);
     if (!this.noRender) this.renderer.render(this.scene, this.camera);

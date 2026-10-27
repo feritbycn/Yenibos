@@ -54,6 +54,8 @@ export class Sound {
       case 'unlock': this.tone(300, 0.4, { type: 'sine', vol: 0.14, slide: 900 }); [1200, 1600, 2000].forEach((f, i) => this.tone(f, 0.2, { type: 'triangle', vol: 0.06, delay: 0.2 + i * 0.07 })); this.haptic(30); break;
       case 'convert': case 'whoosh': this.noise(0.4, { vol: 0.07, lp: 1800, hp: 300 }); this.tone(400, 0.4, { type: 'sine', vol: 0.09, slide: 600 }); break;
       case 'win': [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.3, { type: 'triangle', vol: 0.13, delay: i * 0.1 })); this.haptic(60); break;
+      case 'alarm': if (!this.throttled('alarm', 2500)) return; [0, 0.18, 0.36].forEach((d) => { this.tone(880, 0.12, { type: 'square', vol: 0.08, delay: d, lp: 2400 }); this.tone(660, 0.12, { type: 'square', vol: 0.06, delay: d + 0.09, lp: 2400 }); }); this.haptic(60); break;
+      case 'full': if (!this.throttled('full', 120)) return; [784, 988, 1319].forEach((f, i) => this.tone(f, 0.16, { type: 'triangle', vol: 0.1, delay: i * 0.05 })); this.haptic(20); break;
       case 'lose': [392, 330, 262, 196].forEach((f, i) => this.tone(f, 0.3, { type: 'sine', vol: 0.13, delay: i * 0.14 })); this.haptic(80); break;
       default: break;
     }

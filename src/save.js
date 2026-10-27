@@ -15,6 +15,12 @@ export const defaults = () => ({
   quests: { date: '', list: [], progress: {}, claimed: {} },
   ach: { unlocked: {}, claimed: {} },
   iap: { tx: [] },
+  time: { lastSeen: 0 },
+  weekly: { week: '', days: [], claimed: false },
+  account: { uid: '', token: '', name: '' },
+  best: {},
+  lb: { week: '', levels: {} },
+  inboxDone: [],
   stats: { passengers: 0, levels: 0, vip: 0, coinsEarned: 0, buses: 0, slots: 0, threeStars: 0, ads: 0 },
 });
 
@@ -44,6 +50,12 @@ export function sanitize(raw) {
   const qu = obj(r.quests); out.quests = { date: str(qu.date, ''), list: Array.isArray(qu.list) ? qu.list.filter((q) => q && typeof q.id === 'string').slice(0, 6) : [], progress: obj(qu.progress), claimed: obj(qu.claimed) };
   const ac = obj(r.ach); out.ach = { unlocked: obj(ac.unlocked), claimed: obj(ac.claimed) };
   out.iap = { tx: Array.isArray(obj(r.iap).tx) ? obj(r.iap).tx.filter((x) => typeof x === 'string').slice(-300) : [] };
+  out.time = { lastSeen: num(obj(r.time).lastSeen, 0, 0, 4e12) };
+  const wk = obj(r.weekly); out.weekly = { week: str(wk.week, ''), days: Array.isArray(wk.days) ? wk.days.filter((x) => Number.isInteger(x) && x >= 0 && x < 7) : [], claimed: !!wk.claimed };
+  const ac2 = obj(r.account); out.account = { uid: str(ac2.uid, ''), token: str(ac2.token, ''), name: str(ac2.name, '').slice(0, 20) };
+  out.best = {}; for (const k of Object.keys(obj(r.best))) { const n = +k; if (Number.isInteger(n) && n > 0) out.best[n] = num(r.best[k], 0, 0, 99999); }
+  const lbv = obj(r.lb); out.lb = { week: str(lbv.week, ''), levels: {} }; for (const k of Object.keys(obj(lbv.levels))) out.lb.levels[k] = num(lbv.levels[k], 0, 0, 99999);
+  out.inboxDone = Array.isArray(r.inboxDone) ? r.inboxDone.filter((x) => typeof x === 'string').slice(-200) : [];
   const st = obj(r.stats); out.stats = {}; for (const k of Object.keys(d.stats)) out.stats[k] = num(st[k], 0);
   return out;
 }

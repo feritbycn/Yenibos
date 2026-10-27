@@ -10,6 +10,7 @@ export const COLORS = [
 ];
 export const VIP_COLOR = 99;
 export const SEATS_PER_CELL = 2;      // otobüs kapasitesi = uzunluk * 2
+export const TAXI_SEATS = 4;         // 1 hücrelik küçük araç (taksi)
 export const VIP_LEN = 3;
 export const VIP_SEATS = 8;
 export const SLOTS_TOTAL = 7;         // 4 açık + 3 kilitli
@@ -50,3 +51,24 @@ export const IAP = {
 
 /** Ön sıra penceresi: kuyruğun ilk N yolcusu (kapıdakiler) uygun renkte park etmiş otobüse aynı anda binebilir. */
 export const QUEUE_WINDOW = 3;
+
+/** VIP otobüs çağırma bedeli (jeton). Pahalı tutuldu; reklamla ücretsiz çağrılabilir. */
+export const VIP_CALL_PRICE = 800;
+/** Oyun bitince (kayıp ekranı) reklamla yapılabilecek en fazla geri alma/devam hakkı (seviye başına). */
+export const MAX_REVIVES = 3;
+
+/**
+ * Sunucu altyapısı. mode: 'local' (sunucu yok; sıralama yalnızca bu cihazda) | 'http' (aşağıdaki baseUrl'deki sunucu) | 'off'.
+ * Sunucu kurulumu: README -> "Sunucu altyapısı". Gün sınırı sabit bir saat dilimine (varsayılan Türkiye UTC+3) bağlıdır;
+ * cihaz saat dilimini değiştirerek fazladan gün kazanmak mümkün değildir.
+ */
+export const BACKEND = {
+  mode: 'local',
+  baseUrl: 'https://SUNUCU-ADRESINIZ',
+  dayOffsetMin: 180,
+  weeklyRewards: [500, 300, 150],      // haftalık sıralamada 1., 2., 3. olana altın
+  timeoutMs: 7000,
+};
+
+/** Haftalık giriş sandığı: bir haftada (Pzt-Paz) en az `need` farklı gün girersen açılır. */
+export const WEEKLY_CHEST = { need: 5, coins: 150, power: ['hint', 2] };

@@ -10,18 +10,22 @@ import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { PRICES, COLORS, ADS, IAP, CONV_LIMIT } from './config.js';
+import { PRICES, COLORS, ADS, IAP, CONV_LIMIT, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST } from './config.js';
+import { createBackend } from './backend.js';
+import { Clock } from './time.js';
+import { starsForMoves, starsForExtra, levelScore } from './clockmath.js';
 import { SHOP, DAILY_REWARDS, POWER_INFO, ACHIEVEMENTS, ensureDailyQuests, questDef, dayKey, dayDiff } from './economy.js';
 
 const $ = (s) => document.querySelector(s);
 const POWER_BAR = [
   ['undo', 'Geri Al', 'undo'], ['hint', 'İpucu', 'hint'], ['recall', 'Geri Çağır', 'recall'], ['call', 'Çağır', 'call'], ['convert', 'Değiştir', 'convert'], ['vipcall', 'VIP', 'vip'],
 ];
-const VIP_CALL_PRICE = 220;
 
 export class Game {
   constructor(opts = {}) {
     this.save = new Save();
+    Clock.init(this.save);
+    this.backend = createBackend(this.save);
     this.sound = new Sound();
     this.ui = new UI(this);
     this.ads = new AdService(this.ui); this.iap = new IapService(this);
@@ -35,6 +39,53 @@ export class Game {
     this.bindScene(); this.bindHud();
     this.ui.bindMenu();
     this.goMenu(true);
+    this.goOnline();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Clock.tick(); this.recordLogin(); this.syncInbox(); if (this.phase === 'menu') this.ui.renderMenu(); } });
+  }
+
+  // ---------------------------------------------------------------- sunucu
+  /** Sunucuya bağlan (varsa): hesap + sunucu saati + gelen kutusu. Başarısızlık oyunu engellemez. */
+  async goOnline() {
+    try { await this.backend.init(); } catch { /* çevrimdışı */ }
+    this.recordLogin(); this.syncInbox(); this.pushProfile();
+    if (this.phase === 'menu') this.ui.renderMenu();
+  }
+  profileSnapshot() {
+    const d = this.save.data;
+    return { coins: d.coins, level: d.level, perm: d.perm.slots, powerups: d.powerups, owned: d.owned, stats: d.stats, stars: Object.values(d.completed).reduce((a, b) => a + b, 0) };
+  }
+  pushProfile() { if (this.backend.online) this.backend.sync(this.profileSnapshot()).catch(() => {}); }
+  /** Yöneticinin (sunucu panelinden) gönderdiği hediyeleri ve haftalık sıralama ödüllerini teslim al. */
+  async syncInbox() {
+    if (!this.backend.online) return;
+    const r = await this.backend.inbox(); if (!r.ok) return;
+    const d = this.save.data;
+    for (const it of r.items || []) {
+      if (d.inboxDone.includes(it.id)) { await this.backend.claimInbox(it.id); continue; }
+      const c = await this.backend.claimInbox(it.id); if (!c.ok) continue;     // önce sunucuda "alındı" işaretlenir; çift teslim olmaz
+      d.inboxDone.push(it.id);
+      const parts = [];
+      if (it.coins) { d.coins += it.coins; d.stats.coinsEarned += it.coins; parts.push(`+${it.coins} jeton`); }
+      for (const [k, v] of Object.entries(it.powerups || {})) if (k in d.powerups) { d.powerups[k] += v; parts.push(`+${v} ${POWER_INFO[k]?.name || k}`); }
+      for (const [cat, ids] of Object.entries(it.items || {})) for (const id of ids) if (d.owned[cat] && SHOP[cat]?.some((x) => x.id === id) && !d.owned[cat].includes(id)) { d.owned[cat].push(id); parts.push(SHOP[cat].find((x) => x.id === id).name); }
+      this.save.save(true); this.ui.setCoins(d.coins, true);
+      this.ui.toast(`${it.note || 'Hediye'}: ${parts.join(', ') || 'alındı'}`, 'good'); this.sound.play('coin');
+    }
+    this.renderPowerBar();
+  }
+  /** Günlük giriş: zamana güvenilebiliyorsa bu haftanın giriş günlerine bugünü işler. */
+  recordLogin() {
+    if (!Clock.trusted()) return;
+    const w = this.save.data.weekly, wk = Clock.weekKey(), wd = Clock.weekday();
+    if (w.week !== wk) { w.week = wk; w.days = []; w.claimed = false; }
+    if (!w.days.includes(wd)) { w.days.push(wd); this.save.save(); }
+  }
+  canClaimWeekly() { const w = this.save.data.weekly; return Clock.trusted() && w.week === Clock.weekKey() && !w.claimed && w.days.length >= WEEKLY_CHEST.need; }
+  claimWeekly() {
+    if (!this.canClaimWeekly()) return false;
+    const d = this.save.data; d.weekly.claimed = true;
+    this.addCoins(WEEKLY_CHEST.coins, false); d.powerups[WEEKLY_CHEST.power[0]] += WEEKLY_CHEST.power[1];
+    this.save.save(true); this.sound.play('coin'); this.ui.toast(`Haftalık sandık: +${WEEKLY_CHEST.coins} jeton, +${WEEKLY_CHEST.power[1]} ${POWER_INFO[WEEKLY_CHEST.power[0]].name}!`, 'good'); this.ui.renderMenu(); return true;
   }
 
   peekLevel(n) { if (!this.levelCache.has(n)) this.levelCache.set(n, getLevel(n)); return this.levelCache.get(n); }
@@ -94,8 +145,25 @@ export class Game {
       mv.hidden = false; const left = this.state.moveLimit - this.state.moves;
       mv.innerHTML = `${ico('play', 14)} Hamle ${this.state.moves}/${this.state.moveLimit}`; mv.classList.toggle('warn', left <= 2);
     } else mv.hidden = true;
+    this.refreshStars();
     if (this.timeLeft !== null) { tm.hidden = false; const t = Math.max(0, Math.ceil(this.timeLeft)); tm.innerHTML = `${ico('clock', 14)} ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; tm.classList.toggle('warn', t <= 15); } else tm.hidden = true;
   }
+
+  /** Hamle sayısına göre anlık yıldız göstergesi (3 yıldızdan başlar; fazla hamle yaptıkça düşer). */
+  refreshStars() {
+    const el = $('#chipStars'); if (!el) return;
+    if (!this.lvl || this.neededMoves === undefined) { el.hidden = true; return; }
+    const r = starsForExtra(this.extraSoFar(), this.neededMoves);     // hatalar (engele çarpma, geri çağırma, geri alma…) anında yıldızı düşürür
+    el.hidden = false; el.dataset.stars = r.stars;
+    el.innerHTML = `<span class="st">${[1, 2, 3].map((i) => ico('star', 15, i <= r.stars ? 'on' : '')).join('')}</span><b>${this.moveCount || 0}</b>`;
+    el.title = `3 yıldız için en fazla ${r.t3} fazla hamle, 2 yıldız için ${r.t2}`;
+  }
+  /** Şimdiye kadar yapılan fazla hamle = toplam hamle − yola çıkmış (park eden/biten) gerçek otobüs sayısı. */
+  extraSoFar() {
+    const launched = (this.prevNormal || 0) + (this.state ? this.state.buses.filter((b) => !b.vip && b.st !== 'board').length : 0);
+    return Math.max(0, (this.moveCount || 0) - launched);
+  }
+  countMove(id) { this.moveCount++; if (id !== undefined && this.moveLog.length < 400) this.moveLog.push(id); this.refreshStars(); }
 
   setMode(m, text) {
     this.mode = m; const b = $('#modeBanner');
@@ -125,10 +193,12 @@ export class Game {
     this.ui.closeAll(); this.sound.unlock(); this.setMode(null);
     const d = this.save.data;
     this.levelN = n; this.lvl = this.peekLevel(n); this.stageIdx = 0; this.assists = 0; this.prevPassengers = 0; this.vipCounted = false; this.paused = false;
+    this.moveCount = 0; this.prevNormal = 0; this.moveLog = []; this.revives = 0; this.neededMoves = this.lvl.stages.reduce((a, st) => a + st.buses.filter((b) => !b.v).length, 0);
     if (d.temp.level !== n) d.temp = { level: n, slots: [], conv: 0, vipCalls: 0 };
     this.extraMoves = 0; this.timeLeft = this.lvl.timeLimit ?? null;
     this.cosApply();
     this.beginStage(0, null);
+    this.recordLogin();
     this.phase = 'play';
     $('#menu').hidden = true; $('#hud').hidden = false; $('#app').classList.remove('menu-mode');
     this.refreshHud();
@@ -169,6 +239,7 @@ export class Game {
 
   frame(dt) {
     this.scene.inputLocked = this.phase !== 'play' || this.ui.hasModal || this.paused;
+    this.scene.alertEnabled = this.phase === 'play' && !this.paused && !this.ui.hasModal;
     this.scene.update(this.paused ? 0 : dt);
     if (this.phase === 'play' && !this.paused && !this.adOpen && !this.ui.hasModal && this.timeLeft !== null) {
       this.timeLeft -= dt; this.refreshChipsThrottled(dt);
@@ -190,11 +261,13 @@ export class Game {
     const r = E.tap(s, id);
     this.scene.clearGlows();
     if (r.ok) {
+      this.countMove(id);
       this.snapshots.push(snap); if (this.snapshots.length > 40) this.snapshots.shift();
       this.scene.startDriveToSlot(id, r.slot);
       this.tut.onMove(id); this.refreshChips();
       if (s.buses[id].vip) this.ui.toast('VIP otobüs yola çıktı!', 'good');
     } else if (r.reason === 'blocked') {
+      this.countMove(id);                       // engele çarpmak da hamledir (yıldızı etkiler)
       this.scene.bump(id, r.blockers); for (const b of r.blockers) this.scene.flashBus(b, 0xff4d4d, 0.7); this.refreshChips();
       if (s.moveLimit !== null) this.scene.idleFired = false;
     } else if (r.reason === 'noslot') {
@@ -243,7 +316,7 @@ export class Game {
   }
 
   nextStage() {
-    const prevOpen = this.state.slotOpen.slice(); this.prevPassengers += this.state.queue.length;
+    const prevOpen = this.state.slotOpen.slice(); this.prevPassengers += this.state.queue.length; this.prevNormal += this.state.buses.filter((b) => !b.vip).length;
     const b = $('#stageBanner'); b.hidden = false; b.textContent = `AŞAMA ${this.stageIdx + 2}/${this.lvl.stages.length}`; setTimeout(() => { b.hidden = true; }, 1800);
     this.beginStage(this.stageIdx + 1, prevOpen); this.phase = 'play'; this.scene.idleFired = true;
   }
@@ -252,19 +325,39 @@ export class Game {
     if (this.phase !== 'play') return;
     this.pendingTaps = [];
     this.phase = 'ended'; this.tut.stop(); this.setMode(null); this.sound.play('lose');
-    const s = this.state; const d = this.save.data;
-    const canSlotAd = s.slotOpen.some((o) => !o) && ADS.mode !== 'off';
-    setTimeout(() => { if (this.phase === 'ended') this.ui.fail({ reason, canSlotAd, canUndo: this.snapshots.length > 0, undoCount: d.powerups.undo }); }, 600);
+    const s = this.state;
+    const left = MAX_REVIVES - this.revives; const adOk = ADS.mode !== 'off';
+    const canSlotAd = s.slotOpen.some((o) => !o) && adOk && left > 0;
+    setTimeout(() => { if (this.phase === 'ended') this.ui.fail({ reason, canSlotAd, canUndo: this.snapshots.length > 0 && adOk && left > 0, revivesLeft: left, adOk }); }, 600);
   }
-  reviveAfter() { this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
+  /** Reklam/jetonla devam edildi: hak sayacını artır ve oyunu sürdür. Seviye başına en fazla MAX_REVIVES. */
+  reviveAfter() { this.revives++; this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
+  /** Kayıp ekranı: ödüllü reklamla, hâlâ kazanılabilir en son konuma geri dön (en fazla 3 kez). */
+  async reviveUndo() {
+    if (this.revives >= MAX_REVIVES) { this.ui.toast('Geri alma hakkın bitti. Seviyeyi yeniden başlatmalısın.', 'bad'); return false; }
+    if (!this.snapshots.length) { this.ui.toast('Geri alınacak hamle yok.'); return false; }
+    if (!(await this.requestAd('revive-undo'))) return false;
+    const d = this.save.data; let pick = null;
+    while (this.snapshots.length) {                         // geriye doğru, çözülebilir ilk konumu bul
+      const snap = this.snapshots.pop(); pick = snap;
+      const r1 = solve(snap, { useVip: false, maxNodes: 200000 });
+      if (r1.solved || r1.aborted) break;
+      if (solve(snap, { useVip: true, maxNodes: 200000 }).solved) break;
+    }
+    for (const k of d.temp.slots) pick.slotOpen[k] = true;
+    this.state = pick; this.scene.loadStage(pick, d.temp.slots); this.refreshHud(); this.sound.play('whoosh');
+    this.scene.fx.ring(0, -5.2, 0x7dd3ff, 0.5, 5, 0.8);
+    return true;
+  }
 
   levelComplete() {
     this.phase = 'ended'; this.tut.stop(); this.setMode(null);
     const d = this.save.data, n = this.levelN;
     this.scene.celebrate();
-    const stars = this.assists === 0 ? 3 : this.assists <= 2 ? 2 : 1;
+    const { stars, extra, t3, t2 } = starsForMoves(this.moveCount, this.neededMoves);   // yıldız = hamle verimliliği
     const coins = 15 + stars * 5 + Math.min(15, Math.floor(n / 3));      // jeton zor kazanılır: ~25-45 / seviye
     d.completed[n] = Math.max(d.completed[n] || 0, stars);
+    d.best[n] = d.best[n] ? Math.min(d.best[n], this.moveCount) : this.moveCount;
     d.level = Math.max(d.level, n + 1);
     d.stats.levels++; if (stars === 3) d.stats.threeStars++;
     let rewardPower = null;
@@ -273,7 +366,10 @@ export class Game {
     this.emit('level', 1, false); if (stars === 3) this.emit('threeStar', 1, false);
     this.addCoins(coins, false);
     this.save.save(true);
-    setTimeout(() => this.ui.result({ level: n, stars, coins, canDouble: ADS.mode !== 'off', rewardPower }), 1800);
+    // sıralama: puan sunucuda hamle verisinden yeniden hesaplanır
+    const entry = { level: n, moves: this.moveCount, needed: this.neededMoves, stars, extra, log: this.moveLog };
+    Promise.resolve(this.backend.submitScore(entry)).then(() => this.pushProfile()).catch(() => {});
+    setTimeout(() => this.ui.result({ level: n, stars, coins, canDouble: ADS.mode !== 'off', rewardPower, moves: this.moveCount, needed: this.neededMoves, extra, t3, t2, best: d.best[n], score: levelScore({ stars, extra }) }), 1800);
   }
 
   // ---------------------------------------------------------------- ekonomi
@@ -319,13 +415,24 @@ export class Game {
   async doubleReward(coins) { if (!(await this.requestAd('double-reward'))) return false; this.addCoins(coins, false); this.sound.play('coin'); return true; }
 
   // günlük / görev / başarı
-  canClaimDaily() { return this.save.data.daily.lastClaim !== dayKey(); }
+  canClaimDaily() { Clock.tick(); return Clock.trusted() && dayKey() > this.save.data.daily.lastClaim; }
   nextDailyIndex() { const dl = this.save.data.daily; if (!dl.lastClaim) return 0; return dayDiff(dl.lastClaim, dayKey()) === 1 ? dl.streak % 7 : 0; }
-  claimDaily() {
-    if (!this.canClaimDaily()) return; const d = this.save.data; const idx = this.nextDailyIndex(); const r = DAILY_REWARDS[idx];
-    d.daily.streak = idx + 1; d.daily.lastClaim = dayKey();
+  /** Günlük ödül. Zaman SUNUCUDAN (ya da geri alınamayan yerel saatten) gelir; cihaz saatini değiştirmek ödül kazandırmaz. */
+  async claimDaily() {
+    if (!Clock.trusted()) { this.ui.toast(Clock.why(), 'bad'); return false; }
+    if (!this.canClaimDaily()) return false;
+    const d = this.save.data; let idx = this.nextDailyIndex(), day = dayKey(), streak = idx + 1;
+    if (this.backend.mode === 'http') {                       // gün kararını sunucu verir
+      const r = await this.backend.claimDaily();
+      if (!r.ok) { this.ui.toast(r.reason === 'already' ? 'Bugünkü ödül zaten alındı.' : 'Sunucuya ulaşılamadı, günlük ödül verilmedi.', 'bad'); return false; }
+      idx = r.index; day = r.day; streak = r.streak;
+    }
+    const r = DAILY_REWARDS[idx];
+    d.daily.streak = streak; d.daily.lastClaim = day;
     this.addCoins(r.coins, false); if (r.power) d.powerups[r.power[0]] += r.power[1];
+    this.recordLogin();
     this.save.save(true); this.sound.play('coin'); this.ui.toast(`+${r.coins} jeton${r.power ? ` ve +${r.power[1]} ${POWER_INFO[r.power[0]].name}` : ''}!`, 'good'); this.ui.renderMenu();
+    return true;
   }
   emit(ev, n = 1, doSave = true) {
     const q = this.save.data.quests; ensureDailyQuests(this.save);
@@ -373,14 +480,6 @@ export class Game {
     this.scene.fx.ring(0, -5.2, 0x7dd3ff, 0.5, 5, 0.8);
     return true;
   }
-  /** Başarısızlık ekranından: stoktan veya jetonla geri al. */
-  useUndo(fromFail) {
-    const d = this.save.data;
-    if (!this.snapshots.length) { this.ui.toast('Geri alınacak hamle yok.'); return false; }
-    if (d.powerups.undo > 0) { if (!this.doUndo()) return false; d.powerups.undo--; this.assists++; this.save.save(); return true; }
-    if (!this.spendCoins(PRICES.undo)) return false;
-    this.assists++; void fromFail; return this.doUndo();
-  }
   doHint() {
     const r = solve(this.state, { useVip: false, maxNodes: 250000 });
     if (!r.solved || !r.order.length) { this.ui.toast('Bu durumda çözüm yok. Geri al ya da yeniden başla!', 'bad'); return false; }
@@ -392,7 +491,7 @@ export class Game {
     const snap = E.clone(this.state);
     const r = E.recall(this.state, id);
     if (!r.ok) { this.ui.toast(r.reason === 'occupied' ? 'Başlangıç yeri dolu, geri çağrılamaz.' : 'Bu otobüs geri çağrılamaz.', 'bad'); this.sound.play('error'); return; }
-    this.snapshots.push(snap); this.scene.animateRecall(id); this.setMode(null); this.usePower('recall'); this.scene.idleFired = false;
+    this.countMove(id); this.snapshots.push(snap); this.scene.animateRecall(id); this.setMode(null); this.usePower('recall'); this.scene.idleFired = false;
   }
   /** Sıradaki yolcunun renginde, en az engelli otobüsü parlatarak önerir. */
   suggestCall() {
@@ -425,14 +524,14 @@ export class Game {
     const snap = E.clone(s); const r = E.callBus(s, id);
     if (!r.ok) { this.ui.toast('Çağrılamadı.', 'bad'); return false; }
     if (pay === 'item') d.powerups.call--;
-    this.snapshots.push(snap); this.setMode(null); this.scene.startCraneToSlot(r.id, r.slot); this.assists++; this.scene.idleFired = false; this.refreshChips(); this.renderPowerBar(); this.save.save();
+    this.countMove(id); this.snapshots.push(snap); this.setMode(null); this.scene.startCraneToSlot(r.id, r.slot); this.assists++; this.scene.idleFired = false; this.refreshChips(); this.renderPowerBar(); this.save.save();
     return true;
   }
   doCall() {
     const snap = E.clone(this.state);
     const r = E.callMatching(this.state);
     if (!r.ok) { this.ui.toast(r.reason === 'noslot' ? 'Park yeri yok!' : 'Sıradaki yolcunun renginde otobüs kalmadı.', 'bad'); this.sound.play('error'); return false; }
-    this.snapshots.push(snap); this.scene.startCraneToSlot(r.id, r.slot); this.refreshChips(); return true;
+    this.countMove(r.id); this.snapshots.push(snap); this.scene.startCraneToSlot(r.id, r.slot); this.refreshChips(); return true;
   }
   startConvertMode() {
     const d = this.save.data;
@@ -444,7 +543,7 @@ export class Game {
     if (!b || b.st !== 'board') return;
     if (b.vip) { this.ui.toast('VIP otobüsler dönüştürülemez.'); return; }
     const colors = [...new Set(s.queue.slice(s.qi))].filter((c) => c !== b.color);
-    this.ui.convertDialog({ id, colors, seats: b.seats, canGrow: !!E.canGrow(s, id), canSeat: E.canAddSeat(s, id), maxSeats: b.len * 2, left: CONV_LIMIT - d.temp.conv });
+    this.ui.convertDialog({ id, colors, seats: b.seats, canGrow: !!E.canGrow(s, id), canSeat: E.canAddSeat(s, id), maxSeats: E.capOf(b.len), left: CONV_LIMIT - d.temp.conv });
   }
   async applyConvert(id, sel, pay) {
     if (!sel) return false;
@@ -458,7 +557,7 @@ export class Game {
     const snap = E.clone(s);
     const r = sel.type === 'color' ? E.convertColor(s, id, sel.v) : sel.type === 'seat' ? E.addSeat(s, id) : E.grow(s, id);
     if (!r.ok) { this.ui.toast('Dönüştürme uygulanamadı.', 'bad'); return false; }
-    this.snapshots.push(snap);
+    this.countMove(id); this.snapshots.push(snap);
     if (sel.type === 'color') this.scene.convertFx(id, 'color'); else this.scene.rebuildBus(id);
     d.temp.conv++; this.assists++; this.save.save(); this.setMode(null); this.ui.toast(sel.type === 'seat' ? 'Koltuk eklendi!' : 'Otobüs dönüştürüldü!', 'good'); return true;
   }
@@ -474,7 +573,7 @@ export class Game {
     if (mode === 'ad') { if (!(await this.requestAd('vip-call'))) return false; } else if (!this.spendCoins(VIP_CALL_PRICE)) return false;
     const snap = E.clone(s); const r = E.spawnVip(s);
     if (!r.ok) return false;
-    this.snapshots.push(snap); this.scene.dropVip(s.buses[r.id]); this.save.data.temp.vipCalls++; this.assists++; this.save.save(); return true;
+    this.countMove(r.id); this.snapshots.push(snap); this.scene.dropVip(s.buses[r.id]); this.save.data.temp.vipCalls++; this.assists++; this.save.save(); return true;
   }
   async unlockSlot(mode) {
     const s = this.state; const d = this.save.data;

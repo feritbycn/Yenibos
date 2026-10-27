@@ -122,7 +122,7 @@ check('Otobüs dönüştürme: renk değişti, kapasite aynı kaldı (veya çöz
 
 // ---------- 4b) Yeni özellikler: koltuk ekleme, çağır (jeton), jeton paketleri, yeni stiller
 await ev(() => { const g = window.__game; g.ui.closeAll(); g.save.data.coins = 5000; g.startLevel(13); }); await ff(0.5);
-const seat = await ev(async () => { const g = window.__game; const d = g.save.data; d.temp.conv = 0; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip && x.seats < x.len * 2); if (!b) return { none: true }; const c0 = d.coins, s0 = b.seats; const ok = await g.applyConvert(b.id, { type: 'seat' }, 'coin'); return { ok, s0, s1: g.state.buses[b.id].seats, spent: c0 - d.coins }; });
+const seat = await ev(async () => { const g = window.__game; const d = g.save.data; d.temp.conv = 0; const b = g.state.buses.find((x) => x.st === 'board' && !x.vip && x.seats < (x.len === 1 ? 4 : x.len * 2)); if (!b) return { none: true }; const c0 = d.coins, s0 = b.seats; const ok = await g.applyConvert(b.id, { type: 'seat' }, 'coin'); return { ok, s0, s1: g.state.buses[b.id].seats, spent: c0 - d.coins }; });
 check('Minibüse koltuk eklenebiliyor (+1 koltuk, 60 jeton)', seat.none ? true : (seat.ok && seat.s1 === seat.s0 + 1 && seat.spent === 60), JSON.stringify(seat));
 const minis = await ev(() => { let n = 0; for (let l = 6; l <= 40; l++) { const L = window.__game.peekLevel(l); for (const st of L.stages) for (const b of st.buses) if (b.s) n++; } return n; });
 check('Seviyelerde minibüsler (3/5 koltuk) bulunuyor', minis > 20, 'minibüs sayısı=' + minis);

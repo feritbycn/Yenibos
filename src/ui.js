@@ -2,7 +2,8 @@
 import { ico } from './icons.js';
 import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, questDef, dayKey } from './economy.js';
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
-import { PRICES, ADS, COLORS, VIP_COLOR, IAP } from './config.js';
+import { PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST } from './config.js';
+import { Clock } from './time.js';
 import { Preview } from './preview.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -86,7 +87,7 @@ export class UI {
   // ---------------------------------------------------------------- ana menü
   renderMenu() {
     const G = this.G, d = G.save.data, lvl = G.peekLevel(d.level);
-    const claim = G.canClaimDaily(), qc = G.hasClaimableQuest();
+    const claim = G.canClaimDaily() || G.canClaimWeekly(), qc = G.hasClaimableQuest();
     this.menuEl.innerHTML = `
       <div class="menu-top">
         <div class="lvl-badge">Seviye ${d.level}</div>
@@ -98,6 +99,7 @@ export class UI {
       <div class="menu-nav">
         <button class="nav-btn shop" data-act="shop">${ico('shop', 28)}Mağaza</button>
         <button class="nav-btn coll" data-act="collection">${ico('bus', 28)}Koleksiyon</button>
+        <button class="nav-btn rank" data-act="rank">${ico('trophy', 28)}Sıralama</button>
         <button class="nav-btn quest" data-act="quests">${ico('list', 28)}Görevler${qc ? '<i class="dot"></i>' : ''}</button>
         <button class="nav-btn gift" data-act="daily">${ico('gift', 28)}Günlük${claim ? '<i class="dot"></i>' : ''}</button>
         <button class="nav-btn vip" data-act="vip">${ico('vip', 28)}VIP</button>
@@ -108,7 +110,7 @@ export class UI {
     this.menuEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]'); if (!b) return;
       this.G.sound.unlock(); this.G.sound.play('click');
-      ({ play: () => this.G.startLevel(this.G.save.data.level), shop: () => this.shop(), collection: () => this.collection(), quests: () => this.quests(), daily: () => this.daily(), vip: () => this.vipPanel(), settings: () => this.settings(false) })[b.dataset.act]?.();
+      ({ play: () => this.G.startLevel(this.G.save.data.level), shop: () => this.shop(), collection: () => this.collection(), quests: () => this.quests(), daily: () => this.daily(), rank: () => this.leaderboard(), vip: () => this.vipPanel(), settings: () => this.settings(false) })[b.dataset.act]?.();
     });
   }
 
@@ -199,7 +201,7 @@ export class UI {
       const d = G.save.data;
       c.setBody(`
         <div class="preview"><span class="hintxt">Döndürmek için sürükle</span></div>
-        <p style="margin-top:10px"><b>VIP otobüs</b> altın detaylı özel bir araçtır: <b>her renkten yolcu alır</b>, özel VIP alanına park eder ve 8 yolcu taşır. Bazı seviyelerde sahnede bulunur; ayrıca oyun içinde “VIP Çağır” ile reklam izleyerek veya jetonla çağırabilirsin. Temel seviyeler VIP olmadan da tamamlanabilir.</p>
+        <p style="margin-top:10px"><b>VIP otobüs</b> altın detaylı özel bir araçtır: <b>her renkten yolcu alır</b>, özel VIP alanına park eder ve 8 yolcu taşır. Bazı seviyelerde sahnede bulunur; ayrıca oyun içinde “VIP Çağır” ile reklam izleyerek ya da <b>${VIP_CALL_PRICE} jetonla</b> çağırabilirsin. Temel seviyeler VIP olmadan da tamamlanabilir.</p>
         <div class="opts">${Object.entries(VIP_SKINS).map(([k, s]) => { const own = d.owned.vipSkin.includes(k); return `<button class="opt ${d.equipped.vipSkin === k ? 'sel' : ''}" data-act="skin" data-id="${k}"><div class="dotc" style="background:${hex6(s.body)}"></div>${s.label}<small style="color:#58649a">${own ? (d.equipped.vipSkin === k ? 'Kullanımda' : 'Kullan') : SHOP.vipSkin.find((x) => x.id === k).price + ' 🪙'}</small></button>`; }).join('')}</div>
         <div class="item"><div style="color:#7a4dff">${ico('plus', 30)}</div><div class="t"><b>Kalıcı Premium park yerleri</b><small>${d.perm.slots}/3 açık · tüm seviyelerde geçerli</small></div>${d.perm.slots < 3 ? `<button class="btn gold" data-act="perm">${ico('coin', 16)} ${PRICES.permSlot[d.perm.slots]}</button>` : `<span style="color:#2fd06a">${ico('check', 28)}</span>`}</div>`);
       const pv = c.preview || (c.preview = new Preview(c.q('.preview')));
@@ -249,13 +251,38 @@ export class UI {
   daily() {
     const G = this.G; const c = this.modal({ title: 'Günlük Ödül', head: 'orange', body: '' });
     c.el.querySelector('.sheet-head').style.background = 'linear-gradient(#ffb23f,#ff7a1f)';
+    const DAYN = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
     const render = () => {
-      const d = G.save.data; const can = G.canClaimDaily(); const next = G.nextDailyIndex(); const doneN = can ? next : d.daily.streak;
-      c.setBody(`<p style="text-align:center">Her gün gir, ödülünü al. Bir günü kaçırırsan seri sıfırlanır.</p><div class="days">${DAILY_REWARDS.map((r, i) => `<div class="day ${i < doneN ? 'done' : ''} ${can && i === next ? 'today' : ''} ${i === 6 ? 'big' : ''}">Gün ${i + 1}<b>${r.coins} 🪙</b>${r.power ? `<small>+${r.power[1]} ${POWER_INFO[r.power[0]].name}</small>` : ''}${i < doneN ? `<div style="color:#2fd06a">${ico('check', 20)}</div>` : ''}</div>`).join('')}</div>`);
-      c.setFoot(can ? `<button class="btn green" data-act="claim">${ico('gift', 22)} Ödülü Al</button>` : `<button class="btn gray" disabled>Bugünkü ödül alındı · yarın gel!</button>`);
+      const d = G.save.data; const trusted = Clock.trusted(); const can = G.canClaimDaily(); const next = G.nextDailyIndex(); const doneN = can ? next : d.daily.streak;
+      const w = d.weekly; const wk = w.week === Clock.weekKey() ? w : { days: [], claimed: false }; const wd = Clock.weekday();
+      const chest = `<div class="weekly"><div class="wk-h"><b>${ico('gift', 20)} Haftalık giriş sandığı</b><small>${wk.days.length}/${WEEKLY_CHEST.need} gün · ${WEEKLY_CHEST.coins} 🪙 + ${WEEKLY_CHEST.power[1]} ${POWER_INFO[WEEKLY_CHEST.power[0]].name}</small></div><div class="wk-d">${DAYN.map((n, i) => `<i class="${wk.days.includes(i) ? 'on' : ''} ${i === wd ? 'now' : ''}">${n}</i>`).join('')}</div>${wk.claimed ? '<button class="btn gray" disabled>Bu haftaki sandık alındı</button>' : `<button class="btn ${G.canClaimWeekly() ? 'gold' : 'gray'}" data-act="weekly" ${G.canClaimWeekly() ? '' : 'disabled'}>${ico('gift', 20)} Sandığı aç</button>`}</div>`;
+      c.setBody(`<p style="text-align:center">Her gün gir, ödülünü al. Bir günü kaçırırsan seri sıfırlanır. Gün, sabit saate (Türkiye 00:00) göre değişir; cihaz saatini değiştirmek işe yaramaz.</p>${trusted ? '' : `<p style="text-align:center;color:#c0182b">${Clock.why()}</p>`}<div class="days">${DAILY_REWARDS.map((r, i) => `<div class="day ${i < doneN ? 'done' : ''} ${can && i === next ? 'today' : ''} ${i === 6 ? 'big' : ''}">Gün ${i + 1}<b>${r.coins} 🪙</b>${r.power ? `<small>+${r.power[1]} ${POWER_INFO[r.power[0]].name}</small>` : ''}${i < doneN ? `<div style="color:#2fd06a">${ico('check', 20)}</div>` : ''}</div>`).join('')}</div>${chest}`);
+      c.setFoot(can ? `<button class="btn green" data-act="claim">${ico('gift', 22)} Ödülü Al</button>` : `<button class="btn gray" disabled>${trusted ? 'Bugünkü ödül alındı · yarın gel!' : 'Şu an alınamaz'}</button>`);
     };
     render();
-    this.onAct(c, { claim: () => { G.claimDaily(); render(); } });
+    this.onAct(c, { claim: async () => { await G.claimDaily(); render(); }, weekly: () => { G.claimWeekly(); render(); } });
+  }
+
+  // ---------------------------------------------------------------- haftalık sıralama
+  leaderboard() {
+    const G = this.G; const c = this.modal({ title: 'Haftalık Sıralama', head: 'gold', body: '<p style="text-align:center">Yükleniyor…</p>' });
+    const medal = ['🥇', '🥈', '🥉'];
+    const fmtLeft = (ms) => { const m = Math.max(0, Math.floor((ms - Clock.now()) / 60000)); const dd = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60); return dd ? `${dd} gün ${hh} sa` : `${hh} sa ${m % 60} dk`; };
+    (async () => {
+      const r = await G.backend.leaderboard();
+      if (c.closed) return;
+      if (!r.ok) { c.setBody(`<p style="text-align:center">Sıralama şu an yüklenemedi. İnternet bağlantını kontrol et.</p>`); return; }
+      const name = G.save.data.account.name;
+      const rew = (r.rewards || BACKEND.weeklyRewards).map((v, i) => `<div class="rw"><span>${medal[i] || i + 1 + '.'}</span><b>${v} 🪙</b></div>`).join('');
+      const rows = r.entries.length ? r.entries.map((e) => `<div class="lbrow ${e.you ? 'you' : ''}"><span class="rk">${medal[e.rank - 1] || e.rank}</span><span class="nm">${e.name.replace(/[<>&]/g, '')}${e.you ? ' (sen)' : ''}</span><b>${e.score}</b></div>`).join('') : '<p style="text-align:center;color:#58649a">Bu hafta henüz puan yok. Bir seviye bitir!</p>';
+      c.setBody(`<div class="lb-top"><div><small>Bu haftanın ödülleri</small><div class="rws">${rew}</div></div><div style="text-align:right"><small>Hafta bitimine</small><b>${fmtLeft(r.endsAt)}</b></div></div>
+        ${r.local ? `<p class="lb-note">Sunucu bağlı değil: yalnızca bu cihazdaki puanın görünür. Online sıralama için sunucu bağlanmalı (README → Sunucu altyapısı).</p>` : ''}
+        <div class="lb">${rows}</div>
+        <p style="text-align:center;margin-top:8px;font-size:13px">Senin puanın: <b>${r.me?.score || 0}</b>${r.me?.rank ? ` · Sıran: <b>${r.me.rank}</b>` : ''}</p>
+        <p style="font-size:12px;color:#58649a;text-align:center">Puan = seviye başına en iyi sonucun (az hamle = yüksek puan). Aynı seviyeyi tekrar oynayarak puan şişirilemez.</p>
+        <div class="row" style="margin-top:6px"><input id="nick" maxlength="20" placeholder="Takma ad" value="${(name || '').replace(/"/g, '')}" class="nick"><button class="btn blue" style="flex:none;width:auto" data-act="setname">Kaydet</button></div>`);
+    })();
+    this.onAct(c, { setname: async () => { const v = c.q('#nick')?.value.trim(); if (!v || v.length < 2) { this.toast('Takma ad en az 2 karakter olmalı.', 'bad'); return; } const r = await G.backend.setName(v); this.toast(r.ok ? 'Takma ad kaydedildi.' : 'Kaydedilemedi.', r.ok ? 'good' : 'bad'); } });
   }
 
   // ---------------------------------------------------------------- ayarlar
@@ -292,11 +319,11 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- sonuç
-  result({ level, stars, coins, canDouble, rewardPower, final }) {
+  result({ level, stars, coins, canDouble, rewardPower, final, moves, needed, extra, t3, t2, best, score }) {
     const G = this.G;
     const c = this.modal({
       title: 'SEVİYE TAMAMLANDI!', head: 'green', closable: false,
-      body: `<div class="stars">${[1, 2, 3].map((i) => ico('star', 58, i <= stars ? 'on' : '')).join('')}</div><div class="reward">${ico('coin', 40)}<span id="rcount">+0</span></div>${rewardPower ? `<p style="text-align:center;color:#2f6bff">Bonus: +1 ${POWER_INFO[rewardPower].name}!</p>` : ''}<p style="text-align:center;color:#58649a">Seviye ${level}${final ? '' : ''} başarıyla geçildi.</p>`,
+      body: `<div class="stars">${[1, 2, 3].map((i) => ico('star', 58, i <= stars ? 'on' : '')).join('')}</div><div class="reward">${ico('coin', 40)}<span id="rcount">+0</span></div>${rewardPower ? `<p style="text-align:center;color:#2f6bff">Bonus: +1 ${POWER_INFO[rewardPower].name}!</p>` : ''}<p style="text-align:center;color:#58649a;margin-bottom:4px">Seviye ${level} geçildi · <b>${moves}</b> hamle (en az ${needed} gerekir${best && best < moves ? `, rekorun ${best}` : ''})</p><p style="text-align:center;font-size:12.5px;color:#58649a">${stars === 3 ? 'Mükemmel! Neredeyse hatasız.' : stars === 2 ? `3 yıldız için en fazla ${t3} fazla hamle yapmalıydın (sen ${extra}).` : `2 yıldız için en fazla ${t2} fazla hamle gerekir (sen ${extra}).`} Haftalık puan: +${score}</p>`,
       foot: `<button class="btn green" data-act="next">${ico('play', 22)} Sonraki Seviye</button>${canDouble ? `<button class="btn gold" data-act="double">${ico('ad', 22)} Ödülü 2 katla <small>(isteğe bağlı)</small></button>` : ''}<button class="btn gray" data-act="menu">${ico('home', 20)} Ana Menü</button>`,
     });
     c.el.querySelectorAll('.stars .ico').forEach((e, i) => { e.style.animationDelay = (i * 0.25) + 's'; });
@@ -310,22 +337,28 @@ export class UI {
     });
   }
 
-  fail({ reason, canSlotAd, canUndo, undoCount, moveLimit, timeLimit }) {
+  fail({ reason, canSlotAd, canUndo, revivesLeft, adOk }) {
     const G = this.G;
     const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!', time: 'Süre doldu!' }[reason] || 'Seviye başarısız.';
     const opts = [];
-    if (reason === 'moves') opts.push(`<button class="btn gold" data-act="moveAd">${ico('ad', 22)} Reklam izle: +4 hamle</button>`, `<button class="btn orange" data-act="moveCoin">${ico('coin', 22)} ${PRICES.moves} jeton: +4 hamle</button>`);
-    else if (reason === 'time') opts.push(`<button class="btn gold" data-act="timeAd">${ico('ad', 22)} Reklam izle: +30 sn</button>`, `<button class="btn orange" data-act="timeCoin">${ico('coin', 22)} ${PRICES.time} jeton: +30 sn</button>`);
-    else {
-      if (canSlotAd) opts.push(`<button class="btn gold" data-act="slotAd">${ico('ad', 22)} Reklam izle: ek park yeri aç<small>(bu seviye)</small></button>`);
-      if (canUndo) opts.push(`<button class="btn blue" data-act="undo">${ico('undo', 22)} Hamleyi geri al ${undoCount ? `(${undoCount})` : `(${PRICES.undo} 🪙)`}</button>`);
+    const can = revivesLeft > 0 && adOk;
+    if (can) {
+      if (reason === 'moves') opts.push(`<button class="btn gold" data-act="moveAd">${ico('ad', 22)} Reklam izle: +4 hamle</button>`, `<button class="btn orange" data-act="moveCoin">${ico('coin', 22)} ${PRICES.moves} jeton: +4 hamle</button>`);
+      else if (reason === 'time') opts.push(`<button class="btn gold" data-act="timeAd">${ico('ad', 22)} Reklam izle: +30 sn</button>`, `<button class="btn orange" data-act="timeCoin">${ico('coin', 22)} ${PRICES.time} jeton: +30 sn</button>`);
+      else {
+        if (canUndo) opts.push(`<button class="btn blue" data-act="undo">${ico('undo', 22)} Reklam izle: hamleyi geri al</button>`);
+        if (canSlotAd) opts.push(`<button class="btn gold" data-act="slotAd">${ico('ad', 22)} Reklam izle: ek park yeri aç<small>(bu seviye)</small></button>`);
+      }
     }
-    void moveLimit; void timeLimit;
-    const c = this.modal({ title: 'Olmadı!', head: 'red', closable: false, body: `<p style="text-align:center;font-size:17px">${msg}</p><p style="text-align:center;color:#58649a;font-size:13px">İlerlemen reklam hatalarından etkilenmez. Reklam izlemek isteğe bağlıdır.</p>`, foot: `${opts.join('')}<div class="row"><button class="btn green" data-act="restart">${ico('restart', 20)} Yeniden</button><button class="btn gray" data-act="menu">${ico('home', 20)} Menü</button></div>` });
+    const pips = Array.from({ length: MAX_REVIVES }, (_, i) => `<i class="${i < MAX_REVIVES - revivesLeft ? 'used' : ''}"></i>`).join('');
+    const note = revivesLeft > 0
+      ? `<div class="revive-pips">${pips}</div><p style="text-align:center;color:#58649a;font-size:13px">Bu seviyede kalan geri alma/devam hakkı: <b>${revivesLeft}/${MAX_REVIVES}</b>. Reklam izlemek isteğe bağlıdır.</p>`
+      : `<div class="revive-pips">${pips}</div><p style="text-align:center;color:#b0182b;font-weight:900">Geri alma hakların bitti (${MAX_REVIVES}/${MAX_REVIVES}). Seviyeyi yeniden başlatmalısın.</p>`;
+    const c = this.modal({ title: 'Olmadı!', head: 'red', closable: false, body: `<p style="text-align:center;font-size:17px">${msg}</p>${note}`, foot: `${opts.join('')}<div class="row"><button class="btn green" data-act="restart">${ico('restart', 20)} Yeniden</button><button class="btn gray" data-act="menu">${ico('home', 20)} Menü</button></div>` });
     this.onAct(c, {
       restart: () => { c.close(); G.restart(); }, menu: () => { c.close(); G.goMenu(); },
       slotAd: async () => { if (await G.unlockSlot('ad')) { c.close(); G.reviveAfter(); } },
-      undo: () => { if (G.useUndo(true)) { c.close(); G.reviveAfter(); } },
+      undo: async () => { if (await G.reviveUndo()) { c.close(); G.reviveAfter(); } },
       moveAd: async () => { if (await G.addMoves('ad')) { c.close(); G.reviveAfter(); } },
       moveCoin: async () => { if (await G.addMoves('coin')) { c.close(); G.reviveAfter(); } },
       timeAd: async () => { if (await G.addTime('ad')) { c.close(); G.reviveAfter(); } },

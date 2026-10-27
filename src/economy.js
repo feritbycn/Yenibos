@@ -1,6 +1,8 @@
 // Mağaza kataloğu, günlük ödüller, görevler ve başarılar.
 import { PRICES } from './config.js';
 import { makeRng } from './rng.js';
+import { Clock } from './time.js';
+import { dayDiffKeys } from './clockmath.js';
 
 export const SHOP = {
   style: [
@@ -52,8 +54,9 @@ export const DAILY_REWARDS = [
   { coins: 20 }, { coins: 25 }, { coins: 30, power: ['undo', 1] }, { coins: 35 }, { coins: 40, power: ['hint', 1] }, { coins: 50 }, { coins: 80, power: ['call', 1] },
 ];
 
-export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-export function dayDiff(a, b) { const pa = new Date(a + 'T00:00:00'), pb = new Date(b + 'T00:00:00'); return Math.round((pb - pa) / 86400000); }
+/** Güvenilir (sunucu veya geri alınamayan yerel) saate göre bugünün anahtarı. */
+export const dayKey = () => Clock.dayKey();
+export const dayDiff = (a, b) => dayDiffKeys(a, b);
 
 export const QUEST_POOL = [
   { id: 'levels3', text: '3 seviye tamamla', ev: 'level', goal: 3, reward: 30 },
@@ -79,7 +82,7 @@ export const ACHIEVEMENTS = [
 
 export function ensureDailyQuests(save) {
   const d = save.data; const key = dayKey();
-  if (d.quests.date === key && d.quests.list.length) return false;
+  if (d.quests.list.length && key <= d.quests.date) return false;   // gün değişmedi ya da saat geri alındı: görevler yenilenmez
   const rng = makeRng([...key].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7));
   const pool = QUEST_POOL.slice(); rng.shuffle(pool);
   // her gün şartnamedeki dört örnek görevden en az üçü yer alsın

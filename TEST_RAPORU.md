@@ -58,3 +58,8 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Modeller prosedürel (düşük poligon); özel sanatçı üretimi varlıklar ve gerçek ses dosyaları yok (sesler WebAudio ile sentezlendi).
 - Uygulama ikonu / açılış ekranı Capacitor varsayılanıdır, özelleştirilmedi.
 - Referans ZIP (başka bir stüdyonun ticari Unity APK'sı) değiştirilmedi ve kullanılmadı; birlikte karar verildiği üzere oyun sıfırdan yazıldı.
+
+## v3 test sonuçları
+- Motor: 39/39, sunucu+HttpBackend (gerçek HTTP, yerel): 41/41, e2e: 18/18, e2e2: 26/26, e2e3: 27/27.
+- Test EDİLMEDİ: gerçek AdMob/Play Billing, sunucunun internete dağıtımı, gerçek cihazda ikon/native splash, gerçek oyuncuyla denge.
+- Bilinen sınırlar: VIP seviye içinde isteğe bağlı joker (kullanılınca normal otobüs kısmen dolu kalabilir); sunucu skoru hamle tekrarını doğrulamaz, yalnızca yıldız/puanı yeniden hesaplar. Yazılım-GPU'da bazı ekran görüntüleri zaman aşımına uğradı (test aracı sorunu).

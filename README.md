@@ -83,3 +83,19 @@ android/          Capacitor Android projesi
 ```
 ## Bilinen sınırlar
 Bkz. `TEST_RAPORU.md` → "Yapılmayanlar / doğrulanamayanlar".
+
+## Yeni özellikler (v3)
+- Bekleme alanı: cam korkuluklu platform, yeşil animasyonlu "ÇIKIŞ" kapısı. Taksi (4 koltuk). Kesin kapasite: her renkte koltuk = yolcu, boş otobüs yok.
+- VIP: reklamla ya da 800 altınla. Kayıpta geri alma yalnızca ödüllü reklamla, seviye başına en çok 3 kez, sonra yeniden başlama.
+- Açılış (splash) animasyonu, biniş/dolu otobüs efektleri, son park yerinde kırmızı alarm, hamleye göre 3/2/1 yıldız.
+- Haftalık giriş sandığı, haftalık sıralama (altyapı), saat hilesine karşı korumalı zaman (Clock).
+
+## Sunucu altyapısı
+`src/config.js` içinde `BACKEND.mode`: `'local'` (varsayılan, sunucusuz) | `'http'` | `'off'`.
+Referans sunucu (bağımlılıksız Node): `ADMIN_KEY=gizli PORT=8787 DATA_FILE=server/data.json node server/server.mjs`
+Admin paneli: `/admin` (`x-admin-key`): kullanıcı listesi, altın/güçlendirici/eşya ekleme, yasaklama, haftayı kapatma.
+API: `/v1/auth/guest`, `/v1/time`, `/v1/me`, `/v1/daily/claim`, `/v1/scores`, `/v1/leaderboard/weekly`, `/v1/inbox`, `/v1/inbox/:id/claim`.
+Haftalık ödüller 1./2./3. için 500/300/150 altın (config'den değişir), gelen kutusuna düşer.
+Saat hilesi: http modunda gün/hafta sunucu saatine göredir (gerçek koruma). Çevrimdışıda geri saat alma algılanır; ileri atlama çevrimdışı algılanamaz.
+
+Testler: `npm test`, `node tools/test-server.mjs`, `node tools/e2e.mjs`, `e2e2.mjs`, `e2e3.mjs`.
