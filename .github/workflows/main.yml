@@ -1,0 +1,39 @@
+name: Android APK ve AAB
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'testpass123' }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'testkey' }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'testpass123' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew
+      - name: Keystore (secret varsa onu kullan, yoksa TEST anahtari uret)
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > release.keystore
+          else keytool -genkeypair -v -keystore release.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" -dname "CN=Test, O=Test, C=TR"; fi
+      - run: ./gradlew assembleDebug assembleRelease bundleRelease
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bus-puzzle-deluxe-android
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
