@@ -58,8 +58,6 @@ export const POWER_INFO = {
   convert: { name: 'Değiştir', desc: 'Otobüse koltuk ekler ya da otobüsü uzatır (seviye başına sınırlı). Renkler değişmez.', price: PRICES.convert },
   call: { name: 'Otobüs Çağır', desc: 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır.', price: PRICES.call },
   extraSlot: { name: 'Ek Park Yeri', desc: 'Bu seviye için bir park yeri açar.', price: PRICES.extraSlot },
-  moves: { name: 'Ek Hamle', desc: 'Hamle sınırlı seviyelerde +4 hamle.', price: PRICES.moves },
-  time: { name: 'Ek Süre', desc: 'Süreli seviyelerde +30 saniye.', price: PRICES.time },
   vip: { name: 'VIP Hakkı', desc: 'Seçtiğin otobüsü VIP alanına gönderir; kendi rengindeki yolcuları kuyruğun her yerinden alır.', price: PRICES.vip },
   shuffle: { name: 'Karıştır', desc: 'Tahtadaki otobüslerin yerini karıştırır (seviye çözülebilir kalır).', price: PRICES.shuffle },
 };

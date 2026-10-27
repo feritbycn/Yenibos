@@ -1,7 +1,7 @@
 // Oyun denetleyicisi: motor + sahne + arayüz + ekonomi + eğitim entegrasyonu.
 import { GameScene } from './scene.js';
 import * as E from './engine.js';
-import { getLevel } from './levels.js';
+import { getLevel, moveLimitFor } from './levels.js';
 import { solve } from './solver.js';
 import { Save } from './save.js';
 import { Sound } from './audio.js';
@@ -10,7 +10,7 @@ import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { UNLOCKS, PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
+import { EXTRA_MOVE_PRICE, UNLOCKS, PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
 import { Notifier } from './notify.js';
 import { shuffleLayout } from './levelgen.js';
 import { makeRng } from './rng.js';
@@ -112,8 +112,7 @@ export class Game {
 
     $('#btnPause').addEventListener('click', () => { if (this.phase !== 'play') return; this.sound.play('click'); this.pause(); });
     $('#hudCoins').addEventListener('click', () => { if (this.phase === 'play') { this.sound.play('click'); this.ui.shop('power'); } });
-    $('#chipMoves').addEventListener('click', () => this.offerMoves());
-    $('#chipTime').addEventListener('click', () => this.offerTime());
+    $('#chipMoves').addEventListener('click', () => { if (this.phase === 'play') this.ui.toast('Her otobüs hamlesi ve engele çarpan dokunuş 1 hamle yer. Hamle bitince 60 para ya da reklamla +1 hamle alabilirsin.'); });
     $('#powerBar').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b) this.onPowerTap(b.dataset.p); });
     $('#modeBanner').addEventListener('click', (e) => { if (e.target.closest('[data-cancel]')) { this.setMode(null); this.scene.idleFired = false; } });
   }
@@ -147,13 +146,12 @@ export class Game {
   }
 
   refreshChips() {
-    const mv = $('#chipMoves'), tm = $('#chipTime');
+    const mv = $('#chipMoves'); $('#chipTime').hidden = true;
     if (this.state && this.state.moveLimit !== null) {
-      mv.hidden = false; const left = this.state.moveLimit - this.state.moves;
-      mv.innerHTML = `${ico('play', 14)} Hamle ${this.state.moves}/${this.state.moveLimit}`; mv.classList.toggle('warn', left <= 2);
+      mv.hidden = false; const left = Math.max(0, this.state.moveLimit - this.state.moves);
+      mv.innerHTML = `${ico('play', 14)} Kalan hamle <b>${left}</b>`; mv.classList.toggle('warn', left <= 2);
     } else mv.hidden = true;
     this.refreshStars();
-    if (this.timeLeft !== null) { tm.hidden = false; const t = Math.max(0, Math.ceil(this.timeLeft)); tm.innerHTML = `${ico('clock', 14)} ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; tm.classList.toggle('warn', t <= 15); } else tm.hidden = true;
   }
 
   /** Hamle sayısına göre anlık yıldız göstergesi (3 yıldızdan başlar; fazla hamle yaptıkça düşer). */
@@ -210,7 +208,7 @@ export class Game {
     this.levelN = n; this.scene.vipLocked = !this.isUnlocked('vipcall'); this.lvl = this.peekLevel(n); this.stageIdx = 0; this.assists = 0; this.prevPassengers = 0; this.vipCounted = false; this.paused = false;
     this.moveCount = 0; this.prevNormal = 0; this.moveLog = []; this.revives = 0; this.neededMoves = this.lvl.stages.reduce((a, st) => a + st.buses.filter((b) => !b.v).length, 0);
     if (d.temp.level !== n) d.temp = { level: n, slots: [], conv: 0, vipCalls: 0 };
-    this.extraMoves = 0; this.timeLeft = this.lvl.timeLimit ?? null;
+    this.extraMoves = 0; this.timeLeft = null;           // süre sınırı yok
     this.cosApply();
     this.beginStage(0, null);
     this.recordLogin();
@@ -228,9 +226,10 @@ export class Game {
     this.finalPending = false; this.pendingTaps = [];
     const lvl = this.lvl; const stage = lvl.stages[i]; const d = this.save.data;
     const base = stage.slots ?? lvl.slotsBase ?? 4;
-    const state = E.makeState(stage, { slotsOpen: Math.min(7, base + d.perm.slots), moveLimit: lvl.moveLimit ? lvl.moveLimit + this.extraMoves : null });
+    const state = E.makeState(stage, { slotsOpen: Math.min(7, base + d.perm.slots), moveLimit: moveLimitFor(lvl, i) + (i === this.stageIdx ? this.extraMoves : 0) });
     if (prevOpen) prevOpen.forEach((o, k) => { if (o) state.slotOpen[k] = true; });
     for (const k of d.temp.slots) state.slotOpen[k] = true;
+    if (i !== this.stageIdx) this.extraMoves = 0;         // ek hamle yalnızca satın alındığı aşamada geçerli
     this.state = state; this.snapshots = []; this.stageIdx = i;
     this.scene.forceDepart = false;
     this.scene.loadStage(state, d.temp.slots);
@@ -295,10 +294,6 @@ export class Game {
     this.scene.inputLocked = this.phase !== 'play' || this.ui.hasModal || this.paused;
     this.scene.alertEnabled = this.phase === 'play' && !this.paused && !this.ui.hasModal;
     this.scene.update(this.paused ? 0 : dt);
-    if (this.phase === 'play' && !this.paused && !this.adOpen && !this.ui.hasModal && this.timeLeft !== null) {
-      this.timeLeft -= dt; this.refreshChipsThrottled(dt);
-      if (this.timeLeft <= 0) { this.timeLeft = 0; this.refreshChips(); this.fail('time'); }
-    }
     if (this.phase === 'play') this.tut.update(dt);
     this.moodTick(dt);
     if (this.pendingTaps?.length && this.phase === 'play' && !this.paused && !this.mode && !this.ui.hasModal && !this.scene.isBusy()) this.handleTap(this.pendingTaps.shift());
@@ -734,15 +729,16 @@ export class Game {
     this.scene.unlockSlotFx(idx, true); this.save.save(true); this.ui.toast('Ek park yeri açıldı! (sadece bu seviye)', 'good'); this.renderPowerBar();
     return true;
   }
+  /** Ek hamle: tam olarak +1. 60 para (bakiye yetersizse reddedilir) ya da doğrulanmış ödüllü reklam. İşlem sürerken ikinci işlem başlatılamaz. */
   async addMoves(mode) {
-    if (mode === 'ad') { if (!(await this.requestAd('extra-moves'))) return false; } else if (!this.spendCoins(PRICES.moves)) return false;
-    this.extraMoves += 4; this.state.moveLimit += 4; this.assists++; this.refreshChips(); return true;
+    if (this.moveTx) return false;
+    if (!this.state || this.state.moveLimit === null || this.phase !== 'ended' || this.state.moves < this.state.moveLimit) return false;   // yalnızca kalan hamle 0 iken
+    this.moveTx = true;
+    try {
+      if (mode === 'ad') { if (!(await this.requestAd('extra-moves'))) return false; }
+      else if (!this.spendCoins(EXTRA_MOVE_PRICE)) return false;
+      this.extraMoves += 1; this.state.moveLimit += 1; this.assists++; this.save.save(true); this.refreshChips(); return true;
+    } finally { this.moveTx = false; }
   }
-  async addTime(mode) {
-    if (mode === 'ad') { if (!(await this.requestAd('extra-time'))) return false; } else if (!this.spendCoins(PRICES.time)) return false;
-    this.timeLeft = (this.timeLeft || 0) + 30; this.assists++; this.refreshChips(); return true;
-  }
-  offerMoves() { if (this.phase !== 'play' || this.state.moveLimit === null) return; const d = this.save.data; if (d.powerups.moves > 0) { d.powerups.moves--; this.extraMoves += 4; this.state.moveLimit += 4; this.assists++; this.refreshChips(); this.ui.toast('+4 hamle', 'good'); this.save.save(); } else this.ui.toast(`Hamle bitince reklam veya ${PRICES.moves} jetonla +4 hamle alabilirsin.`); }
-  offerTime() { if (this.phase !== 'play' || this.timeLeft === null) return; const d = this.save.data; if (d.powerups.time > 0) { d.powerups.time--; this.timeLeft += 30; this.assists++; this.refreshChips(); this.ui.toast('+30 saniye', 'good'); this.save.save(); } else this.ui.toast(`Süre bitince reklam veya ${PRICES.time} jetonla +30 sn alabilirsin.`); }
 }
 void COLORS;

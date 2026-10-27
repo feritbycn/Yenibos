@@ -39,7 +39,7 @@ export const REMOVE_ADS = { productId: 'remove_ads', everyLevels: 10, firstAfter
 export const NOTIFY = { dailyHour: 19, dailyMinute: 30, comebackDays: [3, 7, 14], comebackHour: 12, smallIcon: 'ic_stat_bus' };
 
 export const PRICES = {
-  undo: 60, hint: 40, recall: 80, call: 120, moves: 70, time: 70, extraSlot: 150, vip: 100, shuffle: 90,
+  undo: 60, hint: 40, recall: 80, call: 120, moves: 60, time: 70, extraSlot: 150, vip: 100, shuffle: 90,
   permSlot: [400, 800, 1500],
   convert: 100, seat: 60,
 };
@@ -72,6 +72,10 @@ export const QUEUE_WINDOW = 3;
 /** VIP hakkı bedeli (jeton). İlk hak bedava; sonrası reklamla ya da bu bedelle. */
 export const VIP_CALL_PRICE = 100;
 /** Oyun bitince (kayıp ekranı) reklamla yapılabilecek en fazla geri alma/devam hakkı (seviye başına). */
+/** Hamle payı (çözüm için gereken otobüs sayısına eklenir). Hatalı (engele çarpan) dokunuşlar da hamle yer; pay bu yüzden vardır.
+ *  Kademe: öğretici 1-5, kolay 6-15, orta 16-30, zor 31-50, uzman 51-75, usta 76-100, 101+ sonsuz. */
+export const MOVE_SPARE = [[5, 12], [15, 8], [30, 5], [50, 4], [75, 3], [100, 3], [Infinity, 3]];
+export const EXTRA_MOVE_PRICE = 60;
 export const MAX_REVIVES = 3;
 
 /**

@@ -75,3 +75,11 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - `tools/e2e5.mjs` (23): kalkış sırasında yolcu binmeye devam ediyor (27 olay), yürüyen yolcu varken kalkış başlıyor; 2x video düğmesi ilk sırada ve ödül reklam bitince; zorunlu reklam aralığı 4/5; 2x izlenince, reklamsız alınınca, ilk seviyelerde atlanıyor; reklamsız teklifi IAP yokken çıkmıyor, sahte satın alma yok; bildirimler sahte eklentiyle planlanıyor/iptal ediliyor.
 - `tools/test-notifyplan.mjs` (7): bildirim zamanları.
 - Cihazda doğrulanmadı: gerçek bildirim, AdMob interstitial, Play satın alma.
+
+
+## v6 testleri (hamle sınırı / ek hamle / 100 seviye)
+Hepsi **headless Chromium + sahte (test) reklam** ile yapıldı; gerçek cihaz, gerçek AdMob ve Play Faturalandırma ile **test EDİLMEDİ**.
+- `npm test` 45/45, `test-server` 41/41, e2e 20/20, e2e2 26/26, e2e4 11/11, e2e5 33/33, e2e6 18/18, **e2e7 25/25** (yeni), bot/bildirim planı testleri geçti.
+- e2e7 kapsamı: süre yok (2 dk bekleme kaybettirmez), her seviyede (1–120) sınır, geçerli hamle −1, 0'da hamle reddi, pencerenin 4 seçeneği, 60 para ile tam 60 düşüş (+1 hamle), 59 parada devre dışı/reddedilir, reklam iptal/hata → ödül yok, reklam başarı → tam +1 (çift tetikte tek ödül), ek hamle sonraki seviyeye taşınmaz, eşzamanlı iki satın alma → tek işlem, yeniden başlat, ana menü, jeton/ilerleme kalıcılığı, eski kayıt uyumu.
+- Seviyeler: 1–40 birebir değişmedi; 41–100 üretildi, her biri çözüm dizisi motorda oynatılarak doğrulandı.
+- Test edilmeyenler: gerçek reklam/ödeme, düşük performanslı cihazlarda FPS, bildirimlerin cihazda gelmesi, sunucu tarafı satın alma doğrulaması, Lucky Patcher koruması.

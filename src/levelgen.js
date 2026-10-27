@@ -162,26 +162,33 @@ export function levelParams(n) {
   else if (n <= 20) stages = [L({ w: 7, h: 7, count: 14 + (n - 16), lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: n < 18 ? 5 : 6, window: 3, vip: 1, wr: 0.32 })];
   else if (n <= 25) {
     stages = [L({ w: 7, h: 8, count: 16 + (n - 21), lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: 6, window: 3, vip: n % 2, wr: 0.22 })];
-    if (n === 22 || n === 25) extra.moveSpare = 3;
   } else if (n <= 30) {
     const base = 9 + (n - 26);
     stages = [
       L({ w: 7, h: 7, count: base, lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: 5, window: 3, vip: 0, wr: 0.3 }),
       L({ w: 7, h: 7, count: base + 3, lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: 6, window: 3, vip: 1, wr: 0.22 }),
     ];
-    extra.timeSpare = 25;
-  } else {
+  } else if (n <= 40) {
     const k = Math.min(10, n - 30);
     stages = [L({ w: 7, h: 8, count: 17 + Math.min(6, k), lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: 6 + (k > 3 ? 1 : 0), window: 3, vip: n % 2, wr: 0.18 })];
-    if (n % 5 === 0) { const second = { ...stages[0], count: stages[0].count - 4, vip: 0 }; stages.push(second); extra.timeSpare = 30; }
-    if (n % 7 === 0) extra.moveSpare = 3;
+    if (n % 5 === 0) { const second = { ...stages[0], count: stages[0].count - 4, vip: 0 }; stages.push(second); }
+  } else {
+    // 41+: mantıksal karmaşıklık kademeyle artar (daha çok otobüs/renk, dar pencere, düşük rastgele kazanma oranı, çok aşamalı seviyeler)
+    const tier = n <= 50 ? 0 : n <= 75 ? 1 : n <= 100 ? 2 : 3;
+    const k = n <= 50 ? n - 41 : n <= 75 ? n - 51 : n <= 100 ? n - 76 : Math.min(40, n - 101);
+    const base = [20, 23, 26, 28][tier] + Math.floor(k * [0.25, 0.14, 0.1, 0.1][tier]);
+    const w = 7 + (tier >= 1 ? 1 : 0), h = 8 + (tier >= 2 ? 1 : 0);
+    const mk = (count) => L({ w, h, count, lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: Math.min(8, 7 + (tier >= 2 ? 1 : 0)), window: tier >= 1 ? 2 : 3, vip: 0, wr: [0.12, 0.08, 0.05, 0.04][tier], slots: tier >= 2 ? 3 : 4 });
+    stages = [mk(base)];
+    if (tier >= 1 && n % 3 === 0) stages.push(mk(base - 4));
+    if (tier >= 2 && n % 5 === 0) stages.push(mk(base - 6));
   }
   for (const st of stages) st.vip = 0;   // VIP artık oyuncunun hakkıdır (güç), seviyede altın otobüs yok
   if (n >= 6) for (const st of stages) st.mini = Math.min(0.3, 0.12 + n * 0.006);   // 6. seviyeden itibaren bazı otobüsler minibüs (3/5 koltuk)
   return { stages, extra };
 }
 
-export const difficultyOf = (n) => (n <= 2 ? 'easy' : n <= 10 ? 'normal' : n <= 20 ? 'hard' : 'super');
+export const difficultyOf = (n) => (n <= 5 ? 'tutorial' : n <= 15 ? 'easy' : n <= 30 ? 'normal' : n <= 50 ? 'hard' : n <= 75 ? 'expert' : n <= 100 ? 'master' : 'endless');
 
 /** Elle tasarlanan eğitim seviyesi 1 */
 export function tutorialLevel1() {

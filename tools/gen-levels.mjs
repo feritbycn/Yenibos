@@ -5,10 +5,11 @@ import { solve, randomWinRate, replay } from '../src/solver.js';
 import { makeState } from '../src/engine.js';
 import { makeRng } from '../src/rng.js';
 
-const MAX = +(process.argv[2] || 40);
-const out = [];
+const START = +(process.argv[2] || 1), MAX = +(process.argv[3] || 40);
+const FILE = new URL('../src/levels.json', import.meta.url);
+const out = START > 1 ? JSON.parse(fs.readFileSync(FILE, 'utf8')).filter((l) => l.n < START) : [];
 const t0 = Date.now();
-for (let n = 1; n <= MAX; n++) {
+for (let n = START; n <= MAX; n++) {
   let lvl;
   if (n === 1) {
     lvl = tutorialLevel1();
@@ -31,7 +32,7 @@ for (let n = 1; n <= MAX; n++) {
         const rp = replay(st, opts, st.par);
         if (!rp.ok) continue;                                    // yapı gereği çözüm: motorda doğrulanmalı
         const sv = solve(makeState(st, opts), { maxNodes: 500000 });
-        if (!sv.solved) continue;
+        if (!sv.solved) { if (sv.aborted === false) continue; sv.order = st.par; }   // çözücü yetişemediyse doğrulanmış tanıt dizisi (replay ok) çözümdür
         const wr = randomWinRate(st, opts, makeRng(seed ^ 0x9e3779b1), 250);
         if (wr === 0 && p.wr > 0.1 && t < 69) { /* çok sert; yine de aday */ }
         const score = Math.abs(wr - p.wr);
@@ -44,13 +45,12 @@ for (let n = 1; n <= MAX; n++) {
     });
     const normalTotal = stages.reduce((a, s) => a + s.buses.filter((b) => !b.v).length, 0);
     lvl = { stages, slotsBase: ps[0].slots };
-    if (extra.moveSpare && stages.length === 1) lvl.moveLimit = normalTotal + extra.moveSpare;
-    if (extra.timeSpare || stages.length > 1) lvl.timeLimit = Math.round(normalTotal * 4.5 + 40 + (extra.timeSpare || 0));
+    void normalTotal; void extra;
   }
   lvl.n = n; lvl.difficulty = difficultyOf(n);
   out.push(lvl);
   const s0 = lvl.stages.map((s) => `${s.buses.length}b/${s.queue.length}p wr=${s.wr}`).join(' | ');
-  console.log(`L${String(n).padStart(2)} ${lvl.difficulty.padEnd(6)} ${s0}${lvl.moveLimit ? ' moveLimit=' + lvl.moveLimit : ''}${lvl.timeLimit ? ' time=' + lvl.timeLimit : ''}`);
+  console.log(`L${String(n).padStart(2)} ${lvl.difficulty.padEnd(6)} ${s0}`);
 }
-fs.writeFileSync(new URL('../src/levels.json', import.meta.url), JSON.stringify(out));
+fs.writeFileSync(FILE, JSON.stringify(out));
 console.log(`Bitti: ${out.length} seviye, ${((Date.now() - t0) / 1000).toFixed(1)}s`);

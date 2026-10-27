@@ -4,13 +4,13 @@ import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, q
 const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
 import { emblemUrl } from './emblems.js';
-import { UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
+import { EXTRA_MOVE_PRICE, UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
 import { Clock } from './time.js';
 import { Preview } from './preview.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const hex6 = (n) => '#' + n.toString(16).padStart(6, '0');
-const DIFF = { easy: 'KOLAY', normal: 'NORMAL', hard: 'ZOR', super: 'ÇOK ZOR' };
+const DIFF = { tutorial: 'ÖĞRETİCİ', easy: 'KOLAY', normal: 'ORTA', hard: 'ZOR', expert: 'UZMAN', master: 'USTA', endless: 'SONSUZ', super: 'ÇOK ZOR' };
 export const diffLabel = (d) => DIFF[d] || '';
 
 export class UI {
@@ -372,16 +372,41 @@ export class UI {
     });
   }
 
+  /** Hamleler bitti penceresi: 60 para ile +1 hamle, ödüllü reklamla +1 hamle, yeniden başlat, menü. */
+  movesWindow() {
+    const G = this.G; const adOk = ADS.mode !== 'off' && G.ads.available();
+    const c = this.modal({ title: 'Hamlelerin bitti!', head: 'red', closable: false, body: '', foot: '' });
+    let busy = false;
+    const render = (note = '') => {
+      const coins = G.save.data.coins, enough = coins >= EXTRA_MOVE_PRICE;
+      c.setBody(`<div class="mv-top"><div class="mv-ico">${ico('play', 40)}<b>0</b></div><div class="mv-bal">${ico('coin', 20)} Bakiyen: <b>${coins.toLocaleString('tr-TR')}</b></div></div>
+        <p style="text-align:center;font-size:15px">Her ek hamle tam olarak <b>+1 hamle</b> verir. Devam etmek için birini seç:</p>${note ? `<p class="mv-note">${note}</p>` : ''}`);
+      c.setFoot(`<button class="btn orange" data-act="coin" ${enough && !busy ? '' : 'disabled'}>${ico('coin', 22)} +1 Hamle — ${EXTRA_MOVE_PRICE} Para</button>
+        ${enough ? '' : `<p class="mv-note">Yetersiz bakiye: ${EXTRA_MOVE_PRICE} para gerekir.</p>`}
+        <button class="btn green" data-act="ad" ${adOk && !busy ? '' : 'disabled'}>${ico('ad', 22)} ${busy ? 'Yükleniyor…' : 'Reklam İzle — +1 Hamle'}</button>
+        ${adOk ? '' : `<p class="mv-note">Reklam şu an kullanılamıyor.</p>`}
+        <div class="row"><button class="btn gray" data-act="restart" ${busy ? 'disabled' : ''}>${ico('restart', 20)} Yeniden Başlat</button><button class="btn gray" data-act="menu" ${busy ? 'disabled' : ''}>${ico('home', 20)} Ana Menü</button></div>`);
+    };
+    render();
+    const buy = async (mode) => {
+      if (busy || G.moveTx) return; busy = true; render();
+      const ok = await G.addMoves(mode); busy = false;
+      if (ok) { c.close(); G.reviveAfter(true); G.sound.play('coin'); this.toast('+1 hamle', 'good'); }
+      else if (!c.closed) render(mode === 'ad' ? 'Reklam tamamlanmadı ya da yüklenemedi. Hamle verilmedi. Tekrar deneyebilirsin.' : '');
+    };
+    this.onAct(c, { coin: () => buy('coin'), ad: () => buy('ad'), restart: () => { if (busy) return; c.close(); G.restart(); }, menu: () => { if (busy) return; c.close(); G.goMenu(); } });
+    return c;
+  }
+
   fail(args) {
     this._failArgs = args; const { reason, canSlotAd, canUndo, revivesLeft, adOk, canVip } = args;
+    if (reason === 'moves') return this.movesWindow();
     const G = this.G;
-    const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!', time: 'Süre doldu!' }[reason] || 'Seviye başarısız.';
+    const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!' }[reason] || 'Seviye başarısız.';
     const opts = [];
     const can = revivesLeft > 0 && adOk;
     if (can) {
-      if (reason === 'moves') opts.push(`<button class="btn gold" data-act="moveAd">${ico('ad', 22)} Reklam izle: +4 hamle</button>`, `<button class="btn orange" data-act="moveCoin">${ico('coin', 22)} ${PRICES.moves} jeton: +4 hamle</button>`);
-      else if (reason === 'time') opts.push(`<button class="btn gold" data-act="timeAd">${ico('ad', 22)} Reklam izle: +30 sn</button>`, `<button class="btn orange" data-act="timeCoin">${ico('coin', 22)} ${PRICES.time} jeton: +30 sn</button>`);
-      else {
+      {
         if (canUndo) opts.push(`<button class="btn blue" data-act="undo">${ico('undo', 22)} Reklam izle: hamleyi geri al</button>`);
         if (canSlotAd) opts.push(`<button class="btn gold" data-act="slotAd">${ico('ad', 22)} Reklam izle: ek park yeri aç<small>(bu seviye)</small></button>`);
       }
@@ -397,10 +422,6 @@ export class UI {
       vip: () => { c.close(); G.vipRescue(); },
       slotAd: async () => { if (await G.unlockSlot('ad')) { c.close(); G.reviveAfter(true); } },
       undo: async () => { if (await G.reviveUndo()) { c.close(); G.reviveAfter(); } },
-      moveAd: async () => { if (await G.addMoves('ad')) { c.close(); G.reviveAfter(); } },
-      moveCoin: async () => { if (await G.addMoves('coin')) { c.close(); G.reviveAfter(); } },
-      timeAd: async () => { if (await G.addTime('ad')) { c.close(); G.reviveAfter(); } },
-      timeCoin: async () => { if (await G.addTime('coin')) { c.close(); G.reviveAfter(); } },
     });
   }
 

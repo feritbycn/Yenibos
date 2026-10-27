@@ -17,7 +17,7 @@ Referans görsellerdeki oyun türünden esinlenilmiştir; modeller, arayüz, sev
 - **Otobüs stilleri:** Şehir, Minibüs, Okul Servisi, Konfor, **Modern** (panoramik cam, LED şerit), **Lüks** (metalik boya, krom detaylar, koyu cam).
 - **Jeton zor kazanılır** (seviye başına ~25–45 jeton); ücretli seçenekler jetonla ya da reklamla alınır.
 - Mağaza (otobüs stilleri, jantlar, VIP kaplamaları, renk paletleri), koleksiyon (dönen 3D önizleme), günlük ödül, günlük görevler, başarımlar.
-- 40 hazır seviye (hepsi çözücüyle doğrulanmış), 41+ sonsuz üretim. 26–30. seviyeler çok aşamalı + süreli. Parmaklı eğitim yalnızca 1. seviyede; VIP tanıtımı VIP'li ilk seviyede bir kez gösterilir.
+- 100 hazır seviye (hepsi çözücü/oyun motoruyla doğrulanmış), 101+ çalışırken üretim (her seviye yeniden oynatılarak çözülebilirliği doğrulanır). Süre sınırı YOKTUR. Parmaklı eğitim yalnızca 1. seviyede; VIP tanıtımı VIP'li ilk seviyede bir kez gösterilir.
 
 ## Geçici / kalıcı park yeri
 - **Reklamla ek park yeri = yalnızca o seviye için geçici.** Kayıtta `temp.slots` olarak ayrı tutulur, sonraki seviyede sıfırlanır.
@@ -117,3 +117,12 @@ Testler: `npm test`, `node tools/test-server.mjs`, `node tools/e2e.mjs`, `e2e2.m
 - **Bildirimler:** `@capacitor/local-notifications`. 2. seviyeden sonra bir kez nazik izin sorusu; Ayarlar'dan açılıp kapanır. Uygulama arka plana gidince plan yenilenir: günlük ödül hatırlatması (ödül alınmadıysa bugün, yoksa yarın 19:30) ve 3/7/14 gün sonra 12:00'de davet bildirimleri. Oyuna girince eski plan yenilenir.
 
 **Gerçek cihazda test edilmedi:** bildirimlerin gelmesi, gerçek AdMob geçiş reklamı, gerçek reklamsız satın alma. Bunlar sahte eklentilerle mantık düzeyinde test edildi (`tools/e2e5.mjs`, `tools/test-notifyplan.mjs`).
+
+
+## v6: Süre yok, her seviyede hamle sınırı, ek hamle penceresi, 100 seviye
+- **Süre sınırı kaldırıldı** (geri sayım, süre kaybı ve "+30 sn" yok).
+- **Her seviyede hamle sınırı**: sınır = o aşamadaki otobüs sayısı + kademeye göre pay (`MOVE_SPARE` in `src/config.js`; 1–5: 12, 6–15: 8, 16–30: 5, 31–50: 4, 51+: 3). Geçerli her otobüs hamlesi kalan hamleyi 1 azaltır; 0'ın altına inmez, 0'da yeni hamle yapılmaz.
+- **Hamle 0 olunca** tek bir pencere açılır: *+1 Hamle — 60 Para* (`EXTRA_MOVE_PRICE`; bakiye < 60 ise devre dışı + açıklama), *Reklam İzle — +1 Hamle* (yükleniyor/hata/tekrar dene; iptalde ödül yok; bir reklam = bir ödül), *Yeniden Başlat*, *Ana Menü*. İşlem kilidi (`moveTx`) ve "kalan hamle 0 olmalı" koşulu çift işlemi engeller. Ek hamle yalnızca o seviye içindir.
+- **Zorluk kademeleri**: 1–5 eğitim, 6–15 kolay, 16–30 orta, 31–50 zor, 51–75 uzman, 76–100 usta (daha çok otobüs/renk, dar pencere, düşük rastgele kazanma oranı, çok aşamalı seviyeler), 101+ sonsuz. `node tools/gen-levels.mjs 41 100` yalnızca 41–100'ü yeniden üretir (1–40 değişmez).
+- **KARAR NOTU (belirtimle çelişki)**: Belirtim "geçersiz/engelli dokunuş hamle harcamasın" diyor. Ancak her geçerli dokunuş bir otobüsü kalıcı götürdüğü ve geri alma olmadığı için, engelli dokunuşlar da sayılmazsa sınır hiç dolamazdı. Bu yüzden **engelli (yolu kapalı) dokunuşlar hamle sayılır** (yıldız mantığı değişmedi); park yeri dolu/geçersiz dokunuşlar sayılmaz. Değiştirmek istenirse `engine.js` `tap` içindeki `moves++` satırı.
+- Premium/reklam kaldırma hamle sınırını **kaldırmaz**.

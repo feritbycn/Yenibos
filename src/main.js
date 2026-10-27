@@ -1,8 +1,9 @@
 import { Game } from './game.js';
+import * as __E from './engine.js';
 
 const params = new URLSearchParams(location.search);
 const game = new Game({ preserve: params.has('shot') });
-window.__game = game;
+window.__game = game; window.__E = __E;
 let last = performance.now();
 function loop(t) {
   const dt = Math.min(0.1, (t - last) / 1000); last = t;
