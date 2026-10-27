@@ -26,14 +26,14 @@ await prep();
 // ---------- 1) Kalkış/diğer yolcuyu beklemeden biniş: tüm seviyeyi oyna, kalkış sırasında kuyruk ilerliyor mu?
 await ev(() => window.__game.startLevel(12)); await ff(0.5);
 const play = await ev(async () => {
-  const g = window.__game; const sc = g.scene; let boardDuringDepart = 0, departWithWalkers = 0, lastQi = g.state.qi, frames = 0, taps = 0;
+  const g = window.__game; const sc = g.scene; let maxDep = 0, boardDuringDepart = 0, departWithWalkers = 0, lastQi = g.state.qi, frames = 0, taps = 0;
   for (let step = 0; step < 4000 && g.phase === 'play'; step++) {
     sc.noRender = true;
     for (let k = 0; k < 3; k++) {
       const wasDeparting = sc.stripBusy; const w = sc.walkers.size;
       g.frame(1 / 30); frames++;
       if (g.state.qi > lastQi && wasDeparting) boardDuringDepart++;
-      lastQi = g.state.qi;
+      lastQi = g.state.qi; maxDep = Math.max(maxDep, sc.nDep);
       if (!wasDeparting && sc.stripBusy && w > 0) departWithWalkers++;
     }
     sc.noRender = false;
@@ -42,11 +42,13 @@ const play = await ev(async () => {
       if (id !== undefined) { g.handleTap(id); taps++; }
     }
   }
-  return { phase: g.phase, qi: g.state.qi, total: g.state.queue.length, boardDuringDepart, departWithWalkers, taps, frames };
+  return { phase: g.phase, qi: g.state.qi, total: g.state.queue.length, boardDuringDepart, departWithWalkers, taps, frames, maxDep };
 });
 check('Seviye bitti (kazanıldı)', play.phase === 'won' || play.phase === 'result' || play.qi >= play.total, JSON.stringify(play));
 check('Otobüs giderken sıradaki yolcular binmeye devam etti (beklemedi)', play.boardDuringDepart > 0, 'kalkış sırasında binen: ' + play.boardDuringDepart);
 check('Kalkış, yürüyen yolcuları beklemeden başladı', play.departWithWalkers > 0, 'yürürken başlayan kalkış: ' + play.departWithWalkers);
+
+check('Otobüsler art arda gider: aynı anda 2+ otobüs yolda (öncekini beklemez)', play.maxDep >= 2, 'en çok eşzamanlı kalkış: ' + play.maxDep);
 
 // ---------- 2) Sonuç ekranı: 2x video önerisi öne çıkar, ödül yalnızca reklam bittikten sonra
 await pg.waitForTimeout(2400);
@@ -138,6 +140,11 @@ await ev(() => { const g = window.__game; g.save.data.notif = { enabled: false, 
 const sw = await ev(() => !!document.querySelector('[data-act=notif]'));
 check('Ayarlarda bildirim anahtarı var', sw);
 await shot('settings_notif');
+
+// ---------- 1b) VIP alanına dokununca VIP seçimi açılır
+await ev(() => { const g = window.__game; g.ui.closeAll(); g.startLevel(10); }); await ff(0.5);
+const vs = await ev(() => { const g = window.__game; g.save.data.powerups.vip = 1; g.handleSlotTap('V'); const m = g.mode; g.handleSlotTap('V'); return { m, after: g.mode }; });
+check('VIP alanına dokununca VIP modu açılır, tekrar dokununca kapanır', vs.m === 'vip' && !vs.after, JSON.stringify(vs));
 
 check('Konsol hatası yok', errors.length === 0, errors.slice(0, 3).join(' | '));
 const f = results.filter((r) => !r.ok).length; console.log(`\n${results.length - f}/${results.length} geçti`);

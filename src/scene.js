@@ -65,7 +65,7 @@ export class GameScene {
     this.state = null;
     this.tweens = []; this.busVis = new Map(); this.passengers = new Map(); this.walkers = new Set();
     this.glows = new Map(); this.labels = new Map();
-    this.stripBusy = false; this.boardCd = 0; this.idleFired = true; this.celebrating = []; this.alertEnabled = false; this.alertSlot = -1;
+    this.nDep = 0; this.depCd = 0; this.boardCd = 0; this.idleFired = true; this.celebrating = []; this.alertEnabled = false; this.alertSlot = -1;
     this.slotHold = new Array(SLOTS_TOTAL + 1).fill(false);
     this.sfx = () => {}; this.onBusTap = null; this.onSlotTap = null; this.onIdle = null; this.onBoarded = null; this.onBusDepart = null; this.onBusArrive = null;
     this.tapFilter = null; this.time = 0; this.slotMeshes = []; this.slotTexKinds = [];
@@ -341,7 +341,7 @@ export class GameScene {
     this.busVis.clear(); this.passengers.clear(); this.walkers.clear(); this.tweens.length = 0;
     this.glows.forEach((g) => this.scene.remove(g)); this.glows.clear();
     this.labels.forEach((l) => l.remove()); this.labels.clear();
-    this.celebrating = []; this.stripBusy = false; this.boardCd = 0; this.slotHold.fill(false); this.forceDepart = false;
+    this.celebrating = []; this.nDep = 0; this.depCd = 0; this.boardCd = 0; this.slotHold.fill(false); this.forceDepart = false;
   }
 
   loadStage(state, tempSlots = []) {
@@ -525,7 +525,7 @@ export class GameScene {
     void frontZ;
     const poly = roundedPath(pts, 1.0); const L = pathLengths(poly);
     vis.departing = true; vis.depart = { poly, L, s: 0, v: 0, total: L[L.length - 1], slotK, slotIdx: b.slot };
-    this.stripBusy = true; this.slotHold[slotK] = true;
+    this.nDep++; this.depCd = 0.3; this.slotHold[slotK] = true;
     { const px = g.position.x, pz = g.position.z;
       this.fx.burst(px, 0.9, pz, 0xffe28a, 26, 3.4, true, 0.9); this.fx.ring(px, pz, 0xffe28a, 0.4, 2.4, 0.7); this.fx.ring(px, pz, 0x8cffb4, 0.2, 1.7, 0.55);
       this.pulseSlot(slotK, 0xffe28a, 1.0, 0.7); this.sfx('full'); }
@@ -546,7 +546,7 @@ export class GameScene {
     vis.trailT -= dt; if (vis.trailT <= 0) { vis.trailT = 0.08; this.fx.puff(g.position.x + Math.sin(g.rotation.y) * 0.4, g.position.z + Math.cos(g.rotation.y) * 0.4, 0xffffff, 1, 0.5); }
     if (t.s > 2.4 && this.slotHold[t.slotK]) this.slotHold[t.slotK] = false;
     if (t.s >= t.total - 0.01) {
-      vis.departing = false; this.stripBusy = false; this.busGroup.remove(g); this.busVis.delete(vis.id); this.slotHold[t.slotK] = false;
+      vis.departing = false; this.nDep = Math.max(0, this.nDep - 1); this.busGroup.remove(g); this.busVis.delete(vis.id); this.slotHold[t.slotK] = false;
       this.idleFired = false;
     }
   }
@@ -660,6 +660,8 @@ export class GameScene {
   }
 
   // ------------------------------------------------------------------ Yönetmen (boarding/departure/idle)
+  get stripBusy() { return this.nDep > 0; }
+
   director(dt) {
     const s = this.state; if (!s) return;
     this.boardCd -= dt;
@@ -670,7 +672,9 @@ export class GameScene {
       if (b.st === 'parked' && b.arrived && !vis.departing && ((vis.vcount >= b.seats && b.boarded >= b.seats) || (this.forceDepart && vis.vcount >= b.boarded))) { ready = vis; break; }
     }
     // Kalkış, başkalarının binişini beklemez (o otobüse yürüyen yolcu kalmadı: boarded >= seats ve vcount >= seats)
-    if (ready && !this.stripBusy) this.startDeparture(ready);
+    this.depCd -= dt;
+    // dolan otobüsler art arda gider: öncekinin tamamen çıkmasını beklemeden, kısa aralıkla (0.3 sn)
+    if (ready && this.depCd <= 0) this.startDeparture(ready);
     // Sırası gelen yolcu, aynı renkte park etmiş otobüs varsa, kalkışı/diğer yolcuları beklemeden biner
     if (this.boardCd <= 0) {
       const tgt = E.boardTarget(s);

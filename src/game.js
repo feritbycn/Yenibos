@@ -330,7 +330,7 @@ export class Game {
       if (id === null || id === undefined) { this.ui.toast('Bu alanda otobüs yok.'); return; }
       this.doRecall(id); return;
     }
-    if (i === 'V') { this.ui.toast('VIP alanı: VIP hakkıyla seçtiğin otobüs buraya gelir.'); return; }
+    if (i === 'V') { if (this.mode === 'vip') { this.setMode(null); return; } if (s.vipSlot !== null) { this.ui.toast('VIP alanı dolu. Otobüs dolup kalkınca tekrar kullanabilirsin.'); return; } this.sound.play('click'); this.onPower('vipcall'); return; }
     if (!s.slotOpen[i]) { if (this.tut.active && this.tut.cur?.kind !== 'slot') return; this.sound.play('click'); this.ui.slotOffer(); }
   }
 
