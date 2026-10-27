@@ -1,5 +1,6 @@
 // Prosedürel 3D modeller: otobüsler, yolcular, çevre parçaları. Tüm geometri/materyal önbelleklidir.
 import * as THREE from 'three';
+import { EMBLEMS, drawEmblem } from './emblems.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { COLORS, VIP_COLOR } from './config.js';
 
@@ -187,6 +188,25 @@ function buildTaxi(o) {
  * @param {{len:number, hex:number, style?:string, vip?:boolean, rim?:string, vipSkin?:string, seats:number, noArrow?:boolean}} o
  * Yerel eksen: uzunluk Z, ön = -Z, yukarı = +Y.
  */
+const emblemTexCache = new Map();
+function emblemTex(id) {
+  if (emblemTexCache.has(id)) return emblemTexCache.get(id);
+  const c = document.createElement('canvas'); c.width = c.height = 256; drawEmblem(c.getContext('2d'), id, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; emblemTexCache.set(id, t); return t;
+}
+/** Takım arması: çatıda büyük rozet, iki yanda küçük rozet + takım renkli şerit. Gövde rengi (yolcu rengi) DEĞİŞMEZ. */
+function addEmblem(g, id, { W, Lz, y0, lowH, roofTop }) {
+  const e = EMBLEMS.find((x) => x.id === id); if (!e) return;
+  const mk = (size) => new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: emblemTex(id), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const top = mk(Math.min(W * 0.84, Lz * 0.6)); top.rotation.x = -Math.PI / 2; top.position.set(0, roofTop + 0.006, Lz * 0.04); top.renderOrder = 4; g.add(top);
+  for (const sd of [-1, 1]) {
+    const b = mk(0.34); b.rotation.y = sd * Math.PI / 2; b.position.set(sd * (W / 2 + 0.004), y0 + lowH * 0.5, Lz * 0.12); b.renderOrder = 4; g.add(b);
+    for (const [k, col] of [[0, e.c2], [1, e.c1]]) {
+      const st = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, Lz * 0.92), new THREE.MeshStandardMaterial({ color: new THREE.Color(col), roughness: 0.5 }));
+      st.position.set(sd * (W / 2 + 0.003), y0 + 0.07 + k * 0.04, 0); g.add(st);
+    }
+  }
+}
 export function buildBus(o) {
   if (o.len === 1 && !o.vip) return buildTaxi(o);
   const style = o.vip ? 'coach' : (o.style || 'city');
@@ -365,6 +385,7 @@ export function buildBus(o) {
     glow.rotation.x = -Math.PI / 2; glow.scale.set(W + 1.2, Lz + 1.2, 1); glow.position.y = 0.02; glow.renderOrder = 1;
     g.add(glow); parts.glow = glow;
   }
+  if (o.emblem && !o.vip) addEmblem(g, o.emblem, { W, Lz, y0, lowH, roofTop });
   g.userData.parts = parts;
   g.userData.dims = { Lz, W, roofTop };
   return g;
