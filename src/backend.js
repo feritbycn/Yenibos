@@ -25,7 +25,9 @@ export class LocalBackend {
     const total = this.weeklyTotal(); const name = this.save.data.account.name || 'Sen';
     // Sunucu yokken liste SİMÜLE oyuncularla doldurulur (arayüzde belirtilir); ödül verilmez.
     const now = Clock.now(), endsAt = weekEndsAt(now, BACKEND.dayOffsetMin);
-    const bots = botEntries({ weekKey: Clock.weekKey(), now, weekStart: endsAt - 7 * 86400000, weekEnd: endsAt, lang: langOf(globalThis.navigator?.language) });
+    const acc = this.save.data.account;
+    if (!acc.botSeed) { acc.botSeed = (crypto.getRandomValues(new Uint32Array(1))[0] || 1); this.save.save(true); }   // cihaza/kuruluma özel: veri silince değişir
+    const bots = botEntries({ seedBase: acc.botSeed, weekKey: Clock.weekKey(), now, weekStart: endsAt - 7 * 86400000, weekEnd: endsAt, lang: langOf(globalThis.navigator?.language) });
     const all = bots.map((b) => ({ name: b.name, score: b.score }));
     if (total) all.push({ name, score: total, you: true });
     all.sort((a, b) => b.score - a.score || (a.you ? -1 : 1));

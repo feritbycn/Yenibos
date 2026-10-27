@@ -17,7 +17,7 @@ export const defaults = () => ({
   iap: { tx: [] },
   time: { lastSeen: 0 },
   weekly: { week: '', days: [], claimed: false },
-  account: { uid: '', token: '', name: '' },
+  account: { uid: '', token: '', name: '', botSeed: 0 },
   best: {},
   lb: { week: '', levels: {} },
   inboxDone: [],
@@ -54,7 +54,7 @@ export function sanitize(raw) {
   out.iap = { tx: Array.isArray(obj(r.iap).tx) ? obj(r.iap).tx.filter((x) => typeof x === 'string').slice(-300) : [] };
   out.time = { lastSeen: num(obj(r.time).lastSeen, 0, 0, 4e12) };
   const wk = obj(r.weekly); out.weekly = { week: str(wk.week, ''), days: Array.isArray(wk.days) ? wk.days.filter((x) => Number.isInteger(x) && x >= 0 && x < 7) : [], claimed: !!wk.claimed };
-  const ac2 = obj(r.account); out.account = { uid: str(ac2.uid, ''), token: str(ac2.token, ''), name: str(ac2.name, '').slice(0, 20) };
+  const ac2 = obj(r.account); out.account = { uid: str(ac2.uid, ''), token: str(ac2.token, ''), name: str(ac2.name, '').slice(0, 20), botSeed: num(ac2.botSeed, 0, 0, 4294967295) };
   out.best = {}; for (const k of Object.keys(obj(r.best))) { const n = +k; if (Number.isInteger(n) && n > 0) out.best[n] = num(r.best[k], 0, 0, 99999); }
   const lbv = obj(r.lb); out.lb = { week: str(lbv.week, ''), levels: {} }; for (const k of Object.keys(obj(lbv.levels))) out.lb.levels[k] = num(lbv.levels[k], 0, 0, 99999);
   out.inboxDone = Array.isArray(r.inboxDone) ? r.inboxDone.filter((x) => typeof x === 'string').slice(-200) : [];

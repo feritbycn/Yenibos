@@ -29,8 +29,8 @@ function makeName(rng, lang) {
 }
 
 /** @returns {{name:string, score:number}[]} puana göre azalan */
-export function botEntries({ weekKey, now, weekStart, weekEnd, lang = 'en', count = 30 }) {
-  let seed = 7; for (const ch of String(weekKey)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
+export function botEntries({ weekKey, now, weekStart, weekEnd, lang = 'en', count = 30, seedBase = 0 }) {
+  let seed = (7 + Math.imul(seedBase >>> 0, 2654435761)) >>> 0; for (const ch of String(weekKey)) seed = (Math.imul(seed, 31) + ch.charCodeAt(0)) >>> 0;
   const rng = makeRng(seed); const prog = Math.min(1, Math.max(0.08, (now - weekStart) / (weekEnd - weekStart)));
   const seen = new Set(); const out = [];
   while (out.length < count) {

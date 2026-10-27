@@ -17,5 +17,8 @@ const early = botEntries({ weekKey: 'x', now: W + 3600000, weekStart: W, weekEnd
 ok('Skorlar hafta ilerledikçe artar', late[0].score > early[0].score * 3, `${early[0].score} → ${late[0].score}`);
 ok('Ad uzunluğu <= 20', a.every((x) => x.name.length <= 20 && x.name.length > 1));
 ok('Dil eşleme', langOf('tr-TR') === 'tr' && langOf('de-DE') === 'de' && langOf('ja-JP') === 'en' && langOf(undefined) === 'en');
+const x1 = botEntries({ weekKey: 'w', now, weekStart: W, weekEnd: E, lang: 'tr', seedBase: 111 }), x2 = botEntries({ weekKey: 'w', now, weekStart: W, weekEnd: E, lang: 'tr', seedBase: 222 }), x3 = botEntries({ weekKey: 'w', now, weekStart: W, weekEnd: E, lang: 'tr', seedBase: 111 });
+const same = x1.filter((v, i) => v.name === x2[i].name).length;
+ok('Farklı cihaz/kurulum tohumu farklı isim listesi verir', same <= 3 && JSON.stringify(x1) === JSON.stringify(x3), 'aynı sıradaki isim: ' + same);
 console.log(a.slice(0, 8).map((x) => x.name + ' ' + x.score).join(' | '));
 process.exit(f ? 1 : 0);
