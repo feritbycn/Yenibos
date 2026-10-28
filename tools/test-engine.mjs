@@ -176,6 +176,33 @@ t('Hiçbir hazır seviyede VIP (joker) otobüs yok', (() => { for (let n = 1; n 
 }
 t('Varsayılan: 4 açık, toplam 7 park yeri', SLOTS_BASE === 4 && SLOTS_TOTAL === 7);
 
+// ---- v7: sınırsız hamle + renk karıştırma
+{
+  let unl = true;
+  for (const n of [1, 10, 40, 70, 100, 130]) { const L = getLevel(n); const st = makeState(L.stages[0], { slotsOpen: L.slotsBase }); if (st.moveLimit !== null || L.moveLimit || L.timeLimit) unl = false; }
+  t('Seviyelerde hamle/süre sınırı alanı yok (sınırsız hamle)', unl);
+  const L = getLevel(12); const st = makeState(L.stages[0], { slotsOpen: L.slotsBase });
+  let ended = false; for (let i = 0; i < 400; i++) { const b = st.buses.find((x) => x.st === 'board'); if (!b) break; M.tap(st, b.id); if (M.evaluate(st).reason === 'moves') ended = true; }
+  t('400 dokunuş sonrası "hamle bitti" kaybı oluşmaz', !ended && st.moveLimit === null);
+  let okAll = true, solvedSame = true, changed = true, log = [];
+  for (const n of [3, 8, 15, 22, 30, 45, 60, 80, 100]) {
+    const Lv = getLevel(n); const s0 = makeState(Lv.stages[0], { slotsOpen: Lv.slotsBase });
+    const rng = makeRng(n * 977); const map = M.colorShuffleMap(s0, rng, 7);
+    if (!map) { okAll = false; log.push('map yok ' + n); continue; }
+    const vals = Object.values(map), keys = Object.keys(map);
+    const bij = new Set(vals).size === vals.length && keys.every((k) => map[k] !== +k);
+    const s1 = M.clone(s0); M.applyColorMap(s1, map);
+    const same = s1.buses.every((b, i) => b.x === s0.buses[i].x && b.y === s0.buses[i].y && b.dir === s0.buses[i].dir && b.len === s0.buses[i].len && b.seats === s0.buses[i].seats);
+    const a = M.solve(M.clone(s0), { useVip: false, maxNodes: 300000 }), b2 = M.solve(M.clone(s1), { useVip: false, maxNodes: 300000 });
+    if (!(bij && same)) okAll = false; if (a.solved !== b2.solved || (a.aborted !== b2.aborted && !a.solved)) solvedSame = false;
+    if (!s1.buses.some((b, i) => b.color !== s0.buses[i].color)) changed = false;
+    log.push(`${n}:${a.solved}/${b2.solved}`);
+  }
+  t('Renk karıştırma: birebir eşleme, konum/yön/boyut aynı', okAll, log.join(' '));
+  t('Renk karıştırma çözülebilirliği değiştirmez (önce/sonra aynı çözücü sonucu)', solvedSame, log.join(' '));
+  t('Renk karıştırma renkleri gerçekten değiştirir', changed);
+}
+
 console.log(JSON.stringify({ pass, fail }));
 fs.rmSync(tmp, { recursive: true, force: true });
 process.exit(fail ? 1 : 0);

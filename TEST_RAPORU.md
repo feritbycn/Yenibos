@@ -77,9 +77,9 @@ Tarih: 2026-10-27. Ortam: bulut Linux konteyneri, headless Chromium (SwiftShader
 - Cihazda doğrulanmadı: gerçek bildirim, AdMob interstitial, Play satın alma.
 
 
-## v6 testleri (hamle sınırı / ek hamle / 100 seviye)
-Hepsi **headless Chromium + sahte (test) reklam** ile yapıldı; gerçek cihaz, gerçek AdMob ve Play Faturalandırma ile **test EDİLMEDİ**.
-- `npm test` 45/45, `test-server` 41/41, e2e 20/20, e2e2 26/26, e2e4 11/11, e2e5 33/33, e2e6 18/18, **e2e7 25/25** (yeni), bot/bildirim planı testleri geçti.
-- e2e7 kapsamı: süre yok (2 dk bekleme kaybettirmez), her seviyede (1–120) sınır, geçerli hamle −1, 0'da hamle reddi, pencerenin 4 seçeneği, 60 para ile tam 60 düşüş (+1 hamle), 59 parada devre dışı/reddedilir, reklam iptal/hata → ödül yok, reklam başarı → tam +1 (çift tetikte tek ödül), ek hamle sonraki seviyeye taşınmaz, eşzamanlı iki satın alma → tek işlem, yeniden başlat, ana menü, jeton/ilerleme kalıcılığı, eski kayıt uyumu.
-- Seviyeler: 1–40 birebir değişmedi; 41–100 üretildi, her biri çözüm dizisi motorda oynatılarak doğrulandı.
-- Test edilmeyenler: gerçek reklam/ödeme, düşük performanslı cihazlarda FPS, bildirimlerin cihazda gelmesi, sunucu tarafı satın alma doğrulaması, Lucky Patcher koruması.
+## v7 testleri (sınırsız hamle / renk karıştırma / ikmal / çark / teklif / premium)
+Hepsi **headless Chromium + sahte (test) reklam + sahte mağaza eklentisi** ile yapıldı. Gerçek cihaz, gerçek AdMob, gerçek Google Play Faturalandırma ile **test EDİLMEDİ**.
+- `npm test` 50/50 (renk karıştırma eşlemesi, çözücüyle çözülebilirlik, sınırsız hamle dahil), test-server 41/41, e2e 20/20, e2e2 26/26, e2e3 29/29, e2e4 11/11, e2e5 33/33, e2e6 18/18, **e2e8 43/43** (yeni), bot/bildirim planı testleri geçti.
+- e2e8: sınırsız hamle (1–120), karıştır menüsü (hak/100 jeton/reklam; iptal, hata, çift tetik, 99 jeton), konum-yön-boyut aynı + eşleme tutarlı + kuyruk uyumlu + çözülebilir, ikmal (sıra, günde bir, bekleme süresi, reklam iptal, yeni gün), çark (tek ödül, günlük sınır, iptal, eşzamanlı, animasyon=kayıtlı sonuç), teklif (sıklık sınırları, satın alma, yetersiz jeton, geç), premium (kapalıyken hiçbir şey, başarısız/iptal, tekrarlanan işlem, tüketilebilir, geri yükleme, günlük +25), kalıcılık, eski ve bozuk kayıt.
+- Test sırasında bulunan hata: 76–100. seviyeler oyunda olmayan 8. rengi kullanıyordu → düzeltildi, seviyeler yeniden üretildi.
+- **Test EDİLMEYENLER / yapılmayanlar**: gerçek reklam/ödeme, sunucu kontrollü çark sonucu (sunucu yok), 10 inç tablet ve çok ekran boyutu (yalnızca 390×780 telefon görünümü denendi), gerçek cihaz FPS, bildirimlerin cihazda gelmesi, sunucu tarafı satın alma doğrulaması, Lucky Patcher koruması.

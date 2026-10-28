@@ -178,7 +178,7 @@ export function levelParams(n) {
     const k = n <= 50 ? n - 41 : n <= 75 ? n - 51 : n <= 100 ? n - 76 : Math.min(40, n - 101);
     const base = [20, 23, 26, 28][tier] + Math.floor(k * [0.25, 0.14, 0.1, 0.1][tier]);
     const w = 7 + (tier >= 1 ? 1 : 0), h = 8 + (tier >= 2 ? 1 : 0);
-    const mk = (count) => L({ w, h, count, lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: Math.min(8, 7 + (tier >= 2 ? 1 : 0)), window: tier >= 1 ? 2 : 3, vip: 0, wr: [0.12, 0.08, 0.05, 0.04][tier], slots: tier >= 2 ? 3 : 4 });
+    const mk = (count) => L({ w, h, count, lens: { 1: 1, 2: 3, 3: 3, 4: 2 }, colors: 7, window: tier >= 1 ? 2 : 3, vip: 0, wr: [0.12, 0.08, 0.05, 0.04][tier], slots: tier >= 2 ? 3 : 4 });
     stages = [mk(base)];
     if (tier >= 1 && n % 3 === 0) stages.push(mk(base - 4));
     if (tier >= 2 && n % 5 === 0) stages.push(mk(base - 6));

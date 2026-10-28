@@ -4,7 +4,7 @@ import { SHOP, SHOP_TABS, POWER_INFO, DAILY_REWARDS, QUEST_POOL, ACHIEVEMENTS, q
 const STYLE_IMG = { express: 'img/bus_express.jpg', tourist: 'img/bus_tourist.jpg', sport: 'img/bus_sport.jpg' };
 import { PALETTES, BUS_STYLES, VIP_SKINS } from './models.js';
 import { emblemUrl } from './emblems.js';
-import { EXTRA_MOVE_PRICE, UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
+import { SUPPLY, WHEEL, OFFER, PREMIUM, UNLOCKS, PRICES, ADS, COLORS, VIP_COLOR, IAP, VIP_CALL_PRICE, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS } from './config.js';
 import { Clock } from './time.js';
 import { Preview } from './preview.js';
 
@@ -152,6 +152,11 @@ export class UI {
       } else if (tab === 'coins') {
         const ok = G.iap.available();
         body = `<p>${ok ? 'Jeton paketlerini Google Play ile satın alabilirsin.' : '<b>Gerçek parayla satın alma bu sürümde kapalı.</b> Google Play Faturalandırma kurulumu yapılmadan jeton satılmaz (README).'}</p><div class="list">${IAP.packs.map((pk) => `<div class="item"><div>${ico('coin', 34)}</div><div class="grow"><b>${pk.coins.toLocaleString('tr-TR')} jeton</b><small style="display:block;color:#58649a">${pk.label}</small></div><button class="btn gold" data-act="iap" data-id="${pk.id}" ${ok ? '' : 'disabled'}>Satın al</button></div>`).join('')}</div>`;
+      } else if (tab === 'premium') {
+        const ok = G.iap.available();
+        body = `<p>${ok ? 'Premium ürünler Google Play ile satın alınır. Fiyatı mağaza gösterir.' : '<b>Gerçek parayla satın alma bu sürümde kapalı.</b> Mağaza (Google Play Faturalandırma) bağlanmadan hiçbir premium ürün verilmez.'} Premium, hamle ya da seviye avantajı satmaz.</p>
+          <div class="list">${PREMIUM.map((pk) => { const own = !pk.consumable && d.premium.owned[pk.id]; return `<div class="item"><div style="color:#e8890c">${ico('vip', 34)}</div><div class="t"><b>${pk.name}</b><small>${pk.desc}</small></div>${own ? `<span style="color:#2fd06a">${ico('check', 28)}</span>` : `<button class="btn ${ok ? 'gold' : 'gray'}" data-act="prem" data-id="${pk.id}" ${ok ? '' : 'disabled'}>${ok ? 'Satın al' : 'Mağaza yok'}</button>`}</div>`; }).join('')}</div>
+          <button class="btn blue" data-act="restore" style="margin-top:10px">Satın alımları geri yükle</button>`;
       } else if (tab === 'packs') {
         body = `<p>Jetonla alınan paketler: tek tek almaktan daha ucuz. (Gerçek para ödemesi yok.)</p><div class="list">${PACKS.map((pk) => `<div class="item"><div style="color:#7a4dff">${ico('gift', 34)}</div><div class="t"><b>${pk.name} <span style="color:#2fa84f;font-size:12px">${pk.tag}</span></b><small>${Object.entries(pk.items).map(([k, n]) => `${n}× ${POWER_INFO[k].name}`).join(' · ')}</small></div><button class="btn gold" data-act="buypack" data-id="${pk.id}">${ico('coin', 16)} ${pk.price}</button></div>`).join('')}</div>`;
       } else if (tab === 'power') {
@@ -172,6 +177,8 @@ export class UI {
       adpower: async (ds) => { if (await G.adPower(ds.id)) render(); },
       permslot: () => { if (G.buyPermSlot()) render(); },
       iap: async (ds) => { if (await G.buyCoinPack(ds.id)) render(); },
+      prem: async (ds) => { if (await G.buyPremium(ds.id)) render(); },
+      restore: async () => { await G.restorePremium(); render(); },
     });
     return c;
   }
@@ -237,7 +244,7 @@ export class UI {
   /** Yeni açılan özellik tanıtımı. VIP için 3D önizleme, diğerleri kısa açıklama. */
   unlockIntro(kind) {
     if (kind === 'vipcall') { this.vipPreview(); return; }
-    const info = { call: ['Çağır açıldı!', 'call', 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır. Sıradaki yolcunun rengindeki otobüsü bulmak için ideal.'], shuffle: ['Karıştır açıldı!', 'shuffle', 'Tahtadaki otobüslerin yerlerini yeniden dizer; seviye hâlâ çözülebilir kalır. Sıkıştığında kullan.'] }[kind];
+    const info = { call: ['Çağır açıldı!', 'call', 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır. Sıradaki yolcunun rengindeki otobüsü bulmak için ideal.'], shuffle: ['Karıştır açıldı!', 'shuffle', 'Otobüslerin ve yolcuların renklerini karıştırır; konumlar ve bulmaca aynı kalır, çözülebilirlik korunur.'] }[kind];
     const c = this.modal({ title: info[0], head: 'gold', closable: false, body: `<div style="text-align:center;color:#2f6bff;margin:6px 0">${ico(info[1], 64)}</div><p style="text-align:center">${info[2]}</p><p style="text-align:center;font-size:13px;color:#58649a">Alt çubuktaki düğmeden kullanırsın. Hakkın bitince jeton ya da reklamla alabilirsin.</p>`, foot: `<button class="btn green" data-act="ok">Harika!</button>` });
     this.onAct(c, { ok: () => c.close() });
   }
@@ -277,19 +284,81 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- günlük ödül
-  daily() {
-    const G = this.G; const c = this.modal({ title: 'Günlük Ödül', head: 'orange', body: '' });
+  daily(tab0 = 'daily') {
+    const G = this.G; let tab = tab0; let timer = null; const c = this.modal({ title: 'Günlük Ödül', head: 'orange', body: '', onClose: () => clearInterval(timer) });
     c.el.querySelector('.sheet-head').style.background = 'linear-gradient(#ffb23f,#ff7a1f)';
     const DAYN = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    const tabsHtml = () => `<div class="tabs" style="margin:-14px -14px 10px">${[['daily', 'Günlük'], ['supply', 'İkmal'], ['wheel', 'Çark']].map(([id, nm]) => `<button class="tab ${id === tab ? 'on' : ''}" data-act="dtab" data-id="${id}">${nm}</button>`).join('')}</div>`;
     const render = () => {
+      clearInterval(timer);
+      if (tab === 'supply') return this.supplyView(c, tabsHtml(), render, (t) => { timer = t; });
+      if (tab === 'wheel') return this.wheelView(c, tabsHtml(), render);
       const d = G.save.data; const trusted = Clock.trusted(); const can = G.canClaimDaily(); const next = G.nextDailyIndex(); const doneN = can ? next : d.daily.streak;
       const w = d.weekly; const wk = w.week === Clock.weekKey() ? w : { days: [], claimed: false }; const wd = Clock.weekday();
       const chest = `<div class="weekly"><div class="wk-h"><b>${ico('gift', 20)} Haftalık giriş sandığı</b><small>${wk.days.length}/${WEEKLY_CHEST.need} gün · ${WEEKLY_CHEST.coins} 🪙 + ${WEEKLY_CHEST.power[1]} ${POWER_INFO[WEEKLY_CHEST.power[0]].name}</small></div><div class="wk-d">${DAYN.map((n, i) => `<i class="${wk.days.includes(i) ? 'on' : ''} ${i === wd ? 'now' : ''}">${n}</i>`).join('')}</div>${wk.claimed ? '<button class="btn gray" disabled>Bu haftaki sandık alındı</button>' : `<button class="btn ${G.canClaimWeekly() ? 'gold' : 'gray'}" data-act="weekly" ${G.canClaimWeekly() ? '' : 'disabled'}>${ico('gift', 20)} Sandığı aç</button>`}</div>`;
-      c.setBody(`<p style="text-align:center">Her gün gir, ödülünü al. Bir günü kaçırırsan seri sıfırlanır. Gün, sabit saate (Türkiye 00:00) göre değişir; cihaz saatini değiştirmek işe yaramaz.</p>${trusted ? '' : `<p style="text-align:center;color:#c0182b">${Clock.why()}</p>`}<div class="days">${DAILY_REWARDS.map((r, i) => `<div class="day ${i < doneN ? 'done' : ''} ${can && i === next ? 'today' : ''} ${i === 6 ? 'big' : ''}">Gün ${i + 1}<b>${r.coins} 🪙</b>${r.power ? `<small>+${r.power[1]} ${POWER_INFO[r.power[0]].name}</small>` : ''}${i < doneN ? `<div style="color:#2fd06a">${ico('check', 20)}</div>` : ''}</div>`).join('')}</div>${chest}`);
+      c.setBody(tabsHtml() + `<p style="text-align:center">Her gün gir, ödülünü al. Bir günü kaçırırsan seri sıfırlanır. Gün, sabit saate (Türkiye 00:00) göre değişir; cihaz saatini değiştirmek işe yaramaz.</p>${trusted ? '' : `<p style="text-align:center;color:#c0182b">${Clock.why()}</p>`}<div class="days">${DAILY_REWARDS.map((r, i) => `<div class="day ${i < doneN ? 'done' : ''} ${can && i === next ? 'today' : ''} ${i === 6 ? 'big' : ''}">Gün ${i + 1}<b>${r.coins} 🪙</b>${r.power ? `<small>+${r.power[1]} ${POWER_INFO[r.power[0]].name}</small>` : ''}${i < doneN ? `<div style="color:#2fd06a">${ico('check', 20)}</div>` : ''}</div>`).join('')}</div>${chest}`);
       c.setFoot(can ? `<button class="btn green" data-act="claim">${ico('gift', 22)} Ödülü Al</button>` : `<button class="btn gray" disabled>${trusted ? 'Bugünkü ödül alındı · yarın gel!' : 'Şu an alınamaz'}</button>`);
     };
     render();
-    this.onAct(c, { claim: async () => { await G.claimDaily(); render(); }, weekly: () => { G.claimWeekly(); render(); } });
+    this.onAct(c, { dtab: (ds) => { tab = ds.id; render(); }, claim: async () => { await G.claimDaily(); render(); }, weekly: () => { G.claimWeekly(); render(); },
+      sup: async (ds) => { await G.claimSupply(ds.id); render(); }, spin: (ds) => { this._spin?.(ds.mode); } });
+  }
+
+  /** İkmal istasyonu: sıralı 5 ödül; her biri günde bir kez; reklamlı olanlar açıkça işaretli; bekleme süresi gerçek saate bağlı. */
+  supplyView(c, tabs, render, setTimer) {
+    const G = this.G;
+    const paint = () => {
+      const st = G.supplyState(); const fmt = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+      c.setBody(tabs + `<p style="text-align:center">Ödülleri sırayla al. Her ödül günde bir kez alınır; 🎬 işaretliler gerçek bir reklam izlemeni ister.</p>${st.trusted ? '' : `<p class="mv-note">${Clock.why()}</p>`}
+        <div class="list">${st.tiers.map((t, i) => `<div class="item"><div style="color:${t.done ? '#2fd06a' : '#e8890c'}">${ico(t.done ? 'check' : 'coin', 34)}</div><div class="t"><b>${t.coins} jeton</b><small>${t.name}${t.ad ? ' · 🎬 reklam' : ' · ücretsiz'}</small></div>
+          ${t.done ? '<span style="color:#2fd06a;font-weight:900">Alındı</span>' : t.ready ? `<button class="btn ${t.ad ? 'green' : 'gold'}" data-act="sup" data-id="${t.id}">${t.ad ? ico('ad', 18) : ''} Al</button>` : `<button class="btn gray" disabled>${i === st.next && st.wait > 0 ? fmt(st.wait) : 'Kilitli'}</button>`}</div>`).join('')}</div>`);
+      c.setFoot('');
+    };
+    paint(); setTimer(setInterval(() => { if (!c.closed) paint(); }, 1000));
+    return true;
+  }
+
+  /** Şanslı çark: sonuç oyun mantığında belirlenir ve kaydedilir; çark animasyonu o sonuca döner. */
+  wheelView(c, tabs, render) {
+    const G = this.G; const segs = WHEEL.segments; const n = segs.length; const deg = 360 / n; let angle = this._wheelAngle || 0; let busy = false;
+    const grad = segs.map((s, i) => `${['#ffd34d', '#ff7a6b', '#7ad2ff', '#9be36a'][i % 4]} ${i * deg}deg ${(i + 1) * deg}deg`).join(',');
+    const paint = () => {
+      const w = G.wheelState();
+      c.setBody(tabs + `<div class="wheel-wrap"><div class="wheel-ptr"></div><div class="wheel" style="background:conic-gradient(${grad});transform:rotate(${angle}deg)">${segs.map((s, i) => `<b style="transform:rotate(${i * deg + deg / 2}deg) translateY(-92px)"><span style="transform:translate(-50%,-50%) rotate(${-(i * deg + deg / 2)}deg)">${s.label}</span></b>`).join('')}</div></div>
+        <p style="text-align:center;font-size:13px;color:#58649a">Ödül tablosu: 30 / 60 / 150 / 500 jeton, VIP, Karıştır, Çağır hakkı. Sonuç çevirmeden önce belirlenir ve kaydedilir.</p>`);
+      c.setFoot(`<button class="btn ${w.freeLeft > 0 && !busy ? 'gold' : 'gray'}" data-act="spin" data-mode="free" ${w.freeLeft > 0 && !busy ? '' : 'disabled'}>Ücretsiz çevir <small>(${w.freeLeft})</small></button>
+        <button class="btn ${w.adLeft > 0 && !busy ? 'green' : 'gray'}" data-act="spin" data-mode="ad" ${w.adLeft > 0 && !busy ? '' : 'disabled'}>${ico('ad', 20)} Reklam izle, çevir <small>(${w.adLeft})</small></button>`);
+    };
+    this._spin = async (mode) => {
+      if (busy) return; busy = true; paint();
+      const r = await G.spinWheel(mode);
+      if (!r) { busy = false; if (!c.closed) paint(); return; }
+      const target = 360 * 5 + (360 - (r.index * deg + deg / 2));        // işaretçi üstte; dilim ortası işaretçiye gelir
+      const el = c.el.querySelector('.wheel'); angle = Math.floor(angle / 360) * 360 + target;
+      if (el) { el.style.transition = 'transform 3.6s cubic-bezier(.12,.7,.1,1)'; el.style.transform = `rotate(${angle}deg)`; }
+      this._wheelAngle = angle % 360;
+      setTimeout(() => { busy = false; if (c.closed) return; angle = angle % 360; G.sound.play('coin'); this.toast(`Kazandın: ${r.seg.coins ? r.seg.coins + ' jeton' : r.seg.label + ' hakkı'}!`, 'good'); paint(); }, G.fast ? 50 : 3700);
+    };
+    paint(); return true;
+  }
+
+  /** Zor seviye teklifi: kapatılabilir, ücretsiz oynamaya devam edilebilir; sıklık oyun mantığında sınırlıdır. */
+  hardOffer() {
+    const G = this.G; let busy = false;
+    const c = this.modal({ title: 'Zorluğu aşmaya hazır mısın?', head: 'purple', body: '', foot: '' });
+    const names = { shuffle: ['Renk karıştırma', 'shuffle'], vip: ['VIP araç', 'vip'], call: ['Ek otobüs çağırma', 'call'] };
+    const paint = () => {
+      c.setBody(`<p style="text-align:center">Bu seviyede takıldın gibi görünüyor. İstersen yardım paketi alabilirsin; almak zorunda değilsin.</p><div class="list">${Object.entries(OFFER.items).map(([k, v]) => `<div class="item"><div style="color:#7a4dff">${ico(names[k][1], 30)}</div><div class="t"><b>${v} adet ${names[k][0]} hakkı</b></div></div>`).join('')}</div>`);
+      const ok = G.save.data.coins >= OFFER.price; const adOk = ADS.mode !== 'off' && G.ads.available();
+      c.setFoot(`<button class="btn ${ok ? 'gold' : 'gray'}" data-act="buy" ${ok && !busy ? '' : 'disabled'}>${ico('coin', 22)} Paketi al — ${OFFER.price} jeton</button>
+        ${ok ? '' : `<p class="mv-note">Yetersiz bakiye.</p>`}
+        ${adOk ? `<button class="btn green" data-act="ad" ${busy ? 'disabled' : ''}>${ico('ad', 22)} Reklam izle: 1 VIP hakkı</button>` : ''}
+        <button class="btn gray" data-act="skip">Şimdilik geç</button>`);
+    };
+    paint();
+    this.onAct(c, { buy: () => { if (busy) return; busy = true; const ok = G.buyOffer(); busy = false; if (ok) { c.close(); this.toast('Paket eklendi!', 'good'); } else paint(); },
+      ad: async () => { if (busy) return; busy = true; paint(); const ok = await G.offerAd(); busy = false; if (ok) c.close(); else if (!c.closed) paint(); }, skip: () => c.close() });
+    return c;
   }
 
   // ---------------------------------------------------------------- haftalık sıralama
@@ -372,35 +441,8 @@ export class UI {
     });
   }
 
-  /** Hamleler bitti penceresi: 60 para ile +1 hamle, ödüllü reklamla +1 hamle, yeniden başlat, menü. */
-  movesWindow() {
-    const G = this.G; const adOk = ADS.mode !== 'off' && G.ads.available();
-    const c = this.modal({ title: 'Hamlelerin bitti!', head: 'red', closable: false, body: '', foot: '' });
-    let busy = false;
-    const render = (note = '') => {
-      const coins = G.save.data.coins, enough = coins >= EXTRA_MOVE_PRICE;
-      c.setBody(`<div class="mv-top"><div class="mv-ico">${ico('play', 40)}<b>0</b></div><div class="mv-bal">${ico('coin', 20)} Bakiyen: <b>${coins.toLocaleString('tr-TR')}</b></div></div>
-        <p style="text-align:center;font-size:15px">Her ek hamle tam olarak <b>+1 hamle</b> verir. Devam etmek için birini seç:</p>${note ? `<p class="mv-note">${note}</p>` : ''}`);
-      c.setFoot(`<button class="btn orange" data-act="coin" ${enough && !busy ? '' : 'disabled'}>${ico('coin', 22)} +1 Hamle — ${EXTRA_MOVE_PRICE} Para</button>
-        ${enough ? '' : `<p class="mv-note">Yetersiz bakiye: ${EXTRA_MOVE_PRICE} para gerekir.</p>`}
-        <button class="btn green" data-act="ad" ${adOk && !busy ? '' : 'disabled'}>${ico('ad', 22)} ${busy ? 'Yükleniyor…' : 'Reklam İzle — +1 Hamle'}</button>
-        ${adOk ? '' : `<p class="mv-note">Reklam şu an kullanılamıyor.</p>`}
-        <div class="row"><button class="btn gray" data-act="restart" ${busy ? 'disabled' : ''}>${ico('restart', 20)} Yeniden Başlat</button><button class="btn gray" data-act="menu" ${busy ? 'disabled' : ''}>${ico('home', 20)} Ana Menü</button></div>`);
-    };
-    render();
-    const buy = async (mode) => {
-      if (busy || G.moveTx) return; busy = true; render();
-      const ok = await G.addMoves(mode); busy = false;
-      if (ok) { c.close(); G.reviveAfter(true); G.sound.play('coin'); this.toast('+1 hamle', 'good'); }
-      else if (!c.closed) render(mode === 'ad' ? 'Reklam tamamlanmadı ya da yüklenemedi. Hamle verilmedi. Tekrar deneyebilirsin.' : '');
-    };
-    this.onAct(c, { coin: () => buy('coin'), ad: () => buy('ad'), restart: () => { if (busy) return; c.close(); G.restart(); }, menu: () => { if (busy) return; c.close(); G.goMenu(); } });
-    return c;
-  }
-
   fail(args) {
     this._failArgs = args; const { reason, canSlotAd, canUndo, revivesLeft, adOk, canVip } = args;
-    if (reason === 'moves') return this.movesWindow();
     const G = this.G;
     const msg = { noslot: 'Park yerlerin doldu ve çıkabilecek otobüs kalmadı!', stuck: 'Hiçbir otobüs hareket edemiyor!', moves: 'Hamle hakkın bitti!' }[reason] || 'Seviye başarısız.';
     const opts = [];
@@ -452,6 +494,25 @@ export class UI {
     });
     const done = () => { got = true; c.close(); opts.onGot?.(); };
     this.onAct(c, { buy: () => { if (G.buyPower(kind)) done(); }, needcoins: () => { got = true; c.close(); this.shop('coins'); }, ad: async () => { if (await G.adPower(kind)) done(); } });
+  }
+
+  /** Karıştır menüsü: araç/yolcu renklerini değiştirir. Hak varsa hak, yoksa 100 altın ya da ödüllü reklam. */
+  shuffleMenu() {
+    const G = this.G; const adOk = ADS.mode !== 'off' && G.ads.available(); let busy = false;
+    const c = this.modal({ title: 'Araçların Renklerini Karıştır', head: 'gold', body: '', foot: '' });
+    const render = () => {
+      const d = G.save.data, stock = d.powerups.shuffle, enough = d.coins >= PRICES.shuffle;
+      c.setBody(`<div style="text-align:center;margin:2px 0 6px">${ico('orb', 92)}</div>
+        <p style="text-align:center;font-size:16px;font-weight:900">Araçların ve yolcuların renkleri yeni renklerle değişir.</p>
+        <p style="text-align:center;font-size:13px;color:#58649a">Konumlar, yönler ve bulmaca aynı kalır; sadece renkler yer değiştirir. Hak yalnızca işlem başarılı olursa harcanır.</p>`);
+      const dis = busy ? 'disabled' : '';
+      c.setFoot(`${stock > 0 ? `<button class="btn green" data-act="stock" ${dis}>${ico('shuffle', 22)} Hakkını kullan <small>(${stock})</small></button>` : ''}
+        ${enough ? `<button class="btn gold" data-act="coin" ${dis}>${ico('coin', 24)} ${PRICES.shuffle} jetonla kullan</button>` : `<button class="btn orange" data-act="needcoins" ${dis}>${ico('coin', 22)} ${PRICES.shuffle} jeton <small>Jeton kazan</small></button>`}
+        ${adOk ? `<button class="btn green" data-act="ad" ${dis}>${ico('ad', 24)} ${busy ? 'Yükleniyor…' : 'Ücretsiz — reklam izle'}</button>` : `<p class="mv-note">Reklam şu an kullanılamıyor.</p>`}`);
+    };
+    render();
+    const run = async (src) => { if (busy) return; busy = true; render(); const ok = await G.colorShuffle(src); busy = false; if (ok) c.close(); else if (!c.closed) render(); };
+    this.onAct(c, { stock: () => run('stock'), coin: () => run('coin'), ad: () => run('ad'), needcoins: () => { c.close(); this.shop('coins'); } });
   }
 
   /** Kayıp ekranını son bilgilerle yeniden gösterir (VIP satın alma vazgeçilince). */

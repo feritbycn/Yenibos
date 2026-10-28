@@ -295,3 +295,28 @@ export function canAddSeat(s, id) { const b = s.buses[id]; return !!b && b.st ==
 export function addSeat(s, id) { if (!canAddSeat(s, id)) return { ok: false, reason: 'full' }; s.buses[id].seats++; return { ok: true }; }
 
 export function passengersLeft(s) { return s.queue.length - s.qi; }
+
+/** Renk karıştırma: kalan otobüslerin ve kalan yolcuların renklerini AYNI eşlemeyle (birebir, kimseyle çakışmayan) değiştirir.
+ *  Konum, yön, boyut, koltuk ve doluluk değişmez; eşleme birebir olduğu için bulmaca eşyapılı kalır (çözülebilirlik korunur). */
+export function colorShuffleMap(s, rng, palette = 7) {
+  const used = new Set();
+  for (let i = s.qi; i < s.queue.length; i++) used.add(s.queue[i]);
+  for (const b of s.buses) if ((b.st === 'board' || b.st === 'parked') && b.color !== VIP_COLOR) used.add(b.color);
+  const from = [...used].sort((a, b) => a - b);
+  if (from.length < 2 && palette <= from.length) return null;
+  const all = Array.from({ length: palette }, (_, i) => i);
+  for (let t = 0; t < 200; t++) {
+    const pool = rng.shuffle(all.slice()); const map = {}; const taken = new Set(); let ok = true;
+    for (const c of from) {
+      const pick = pool.find((x) => x !== c && !taken.has(x));
+      if (pick === undefined) { ok = false; break; }
+      map[c] = pick; taken.add(pick);
+    }
+    if (ok) return map;
+  }
+  return null;
+}
+export function applyColorMap(s, map) {
+  for (let i = s.qi; i < s.queue.length; i++) if (map[s.queue[i]] !== undefined) s.queue[i] = map[s.queue[i]];
+  for (const b of s.buses) if ((b.st === 'board' || b.st === 'parked') && map[b.color] !== undefined) b.color = map[b.color];
+}

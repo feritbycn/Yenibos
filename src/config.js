@@ -39,7 +39,7 @@ export const REMOVE_ADS = { productId: 'remove_ads', everyLevels: 10, firstAfter
 export const NOTIFY = { dailyHour: 19, dailyMinute: 30, comebackDays: [3, 7, 14], comebackHour: 12, smallIcon: 'ic_stat_bus' };
 
 export const PRICES = {
-  undo: 60, hint: 40, recall: 80, call: 120, moves: 60, time: 70, extraSlot: 150, vip: 100, shuffle: 90,
+  undo: 60, hint: 40, recall: 80, call: 120, moves: 60, time: 70, extraSlot: 150, vip: 100, shuffle: 100,
   permSlot: [400, 800, 1500],
   convert: 100, seat: 60,
 };
@@ -74,8 +74,6 @@ export const VIP_CALL_PRICE = 100;
 /** Oyun bitince (kayıp ekranı) reklamla yapılabilecek en fazla geri alma/devam hakkı (seviye başına). */
 /** Hamle payı (çözüm için gereken otobüs sayısına eklenir). Hatalı (engele çarpan) dokunuşlar da hamle yer; pay bu yüzden vardır.
  *  Kademe: öğretici 1-5, kolay 6-15, orta 16-30, zor 31-50, uzman 51-75, usta 76-100, 101+ sonsuz. */
-export const MOVE_SPARE = [[5, 12], [15, 8], [30, 5], [50, 4], [75, 3], [100, 3], [Infinity, 3]];
-export const EXTRA_MOVE_PRICE = 60;
 export const MAX_REVIVES = 3;
 
 /**
@@ -93,3 +91,38 @@ export const BACKEND = {
 
 /** Haftalık giriş sandığı: bir haftada (Pzt-Paz) en az `need` farklı gün girersen açılır. */
 export const WEEKLY_CHEST = { need: 5, coins: 150, power: ['hint', 2] };
+
+// ---- Günlük ikmal istasyonu (yapılandırılabilir). Sıralı açılır; her ödül günde bir kez; ikisi arası gerçek zamanlı bekleme.
+export const SUPPLY = {
+  gapMs: 10 * 60 * 1000,
+  tiers: [
+    { id: 's0', coins: 15, ad: false, name: 'Günlük ikmal' },
+    { id: 's1', coins: 20, ad: true, name: 'Reklamlı ikmal' },
+    { id: 's2', coins: 50, ad: true, name: 'Ek ödül' },
+    { id: 's3', coins: 70, ad: true, name: 'Gelişmiş ödül' },
+    { id: 's4', coins: 100, ad: true, name: 'Büyük ödül' },
+  ],
+};
+// ---- Şanslı çark (yapılandırılabilir ödül tablosu; w = ağırlık). Günde 1 ücretsiz + reklamla en çok adSpins çevirme.
+export const WHEEL = {
+  freePerDay: 1, adSpinsPerDay: 3,
+  segments: [
+    { id: 'c30a', coins: 30, w: 15, label: '30' }, { id: 'vip', power: ['vip', 1], w: 12, label: 'VIP' },
+    { id: 'c150', coins: 150, w: 10, label: '150' }, { id: 'shuf', power: ['shuffle', 1], w: 12, label: 'Karıştır' },
+    { id: 'c30b', coins: 30, w: 15, label: '30' }, { id: 'call', power: ['call', 1], w: 14, label: 'Çağır' },
+    { id: 'c500', coins: 500, w: 2, label: '500' }, { id: 'c60', coins: 60, w: 12, label: '60' },
+  ],
+};
+// ---- Zor seviye teklifi: puan = 2*başarısız deneme + dakika/2 + kurtarma sayısı*2 + (zor kademe ? 1 : 0). Puan >= minScore ise teklif.
+export const OFFER = {
+  minScore: 4, cooldownMs: 20 * 60 * 1000, maxPerDay: 3, price: 300,
+  items: { shuffle: 2, vip: 2, call: 2 },
+};
+// ---- Premium (gerçek para; Google Play ürünleri). Fiyat koda yazılmaz; mağaza bağlıyken mağaza gösterir.
+export const PREMIUM = [
+  { id: 'prem_noads', productId: 'premium_noads', name: 'Reklamsız', desc: 'Zorunlu geçiş reklamları kapanır. Ödüllü reklamlar isteğe bağlı kalır.' },
+  { id: 'prem_vip', productId: 'premium_vip', name: 'Özel VIP Tasarımları', desc: 'Platin ve Kraliyet VIP araç görünümlerini açar.' },
+  { id: 'prem_daily', productId: 'premium_daily', name: 'Günlük Ek Ödül', desc: 'Her günlük girişe +25 jeton ekler.' },
+  { id: 'prem_power', productId: 'premium_power', name: 'Premium Güç Paketi', desc: '+3 VIP, +3 Karıştır, +3 Çağır. Tekrar alınabilir.', consumable: true },
+];
+export const PREMIUM_DAILY_BONUS = 25;

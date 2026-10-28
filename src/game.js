@@ -1,7 +1,7 @@
 // Oyun denetleyicisi: motor + sahne + arayüz + ekonomi + eğitim entegrasyonu.
 import { GameScene } from './scene.js';
 import * as E from './engine.js';
-import { getLevel, moveLimitFor } from './levels.js';
+import { getLevel } from './levels.js';
 import { solve } from './solver.js';
 import { Save } from './save.js';
 import { Sound } from './audio.js';
@@ -10,9 +10,8 @@ import { IapService } from './iap.js';
 import { UI, diffLabel } from './ui.js';
 import { Tutorial } from './tutorial.js';
 import { ico } from './icons.js';
-import { EXTRA_MOVE_PRICE, UNLOCKS, PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
+import { SUPPLY, WHEEL, OFFER, PREMIUM, PREMIUM_DAILY_BONUS, UNLOCKS, PRICES, COLORS, ADS, IAP, CONV_LIMIT, MAX_REVIVES, BACKEND, WEEKLY_CHEST, PACKS, INTERSTITIAL, REMOVE_ADS } from './config.js';
 import { Notifier } from './notify.js';
-import { shuffleLayout } from './levelgen.js';
 import { makeRng } from './rng.js';
 import { createBackend } from './backend.js';
 import { Clock } from './time.js';
@@ -112,7 +111,6 @@ export class Game {
 
     $('#btnPause').addEventListener('click', () => { if (this.phase !== 'play') return; this.sound.play('click'); this.pause(); });
     $('#hudCoins').addEventListener('click', () => { if (this.phase === 'play') { this.sound.play('click'); this.ui.shop('power'); } });
-    $('#chipMoves').addEventListener('click', () => { if (this.phase === 'play') this.ui.toast('Her otobüs hamlesi ve engele çarpan dokunuş 1 hamle yer. Hamle bitince 60 para ya da reklamla +1 hamle alabilirsin.'); });
     $('#powerBar').addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b) this.onPowerTap(b.dataset.p); });
     $('#modeBanner').addEventListener('click', (e) => { if (e.target.closest('[data-cancel]')) { this.setMode(null); this.scene.idleFired = false; } });
   }
@@ -146,11 +144,7 @@ export class Game {
   }
 
   refreshChips() {
-    const mv = $('#chipMoves'); $('#chipTime').hidden = true;
-    if (this.state && this.state.moveLimit !== null) {
-      mv.hidden = false; const left = Math.max(0, this.state.moveLimit - this.state.moves);
-      mv.innerHTML = `${ico('play', 14)} Kalan hamle <b>${left}</b>`; mv.classList.toggle('warn', left <= 2);
-    } else mv.hidden = true;
+    $('#chipMoves').hidden = true; $('#chipTime').hidden = true;   // hamle ve süre sınırı yok
     this.refreshStars();
   }
 
@@ -208,7 +202,8 @@ export class Game {
     this.levelN = n; this.scene.vipLocked = !this.isUnlocked('vipcall'); this.lvl = this.peekLevel(n); this.stageIdx = 0; this.assists = 0; this.prevPassengers = 0; this.vipCounted = false; this.paused = false;
     this.moveCount = 0; this.prevNormal = 0; this.moveLog = []; this.revives = 0; this.neededMoves = this.lvl.stages.reduce((a, st) => a + st.buses.filter((b) => !b.v).length, 0);
     if (d.temp.level !== n) d.temp = { level: n, slots: [], conv: 0, vipCalls: 0 };
-    this.extraMoves = 0; this.timeLeft = null;           // süre sınırı yok
+    this.timeLeft = null;           // süre ve hamle sınırı yok
+    if (d.cur.level !== n) d.cur = { level: n, fails: 0, rescues: 0, startedAt: Clock.now() };
     this.cosApply();
     this.beginStage(0, null);
     this.recordLogin();
@@ -219,6 +214,7 @@ export class Game {
     if (n === 1 && tutOn && !d.tutorial.l1) this.tut.start(1);
     else this.tut.stop();
     this.maybeVipIntro();
+    setTimeout(() => this.maybeHardOffer(), 1200);
     this.save.save();
   }
 
@@ -226,10 +222,9 @@ export class Game {
     this.finalPending = false; this.pendingTaps = [];
     const lvl = this.lvl; const stage = lvl.stages[i]; const d = this.save.data;
     const base = stage.slots ?? lvl.slotsBase ?? 4;
-    const state = E.makeState(stage, { slotsOpen: Math.min(7, base + d.perm.slots), moveLimit: moveLimitFor(lvl, i) + (i === this.stageIdx ? this.extraMoves : 0) });
+    const state = E.makeState(stage, { slotsOpen: Math.min(7, base + d.perm.slots) });
     if (prevOpen) prevOpen.forEach((o, k) => { if (o) state.slotOpen[k] = true; });
     for (const k of d.temp.slots) state.slotOpen[k] = true;
-    if (i !== this.stageIdx) this.extraMoves = 0;         // ek hamle yalnızca satın alındığı aşamada geçerli
     this.state = state; this.snapshots = []; this.stageIdx = i;
     this.scene.forceDepart = false;
     this.scene.loadStage(state, d.temp.slots);
@@ -397,14 +392,14 @@ export class Game {
   fail(reason) {
     if (this.phase !== 'play') return;
     this.pendingTaps = [];
-    this.phase = 'ended'; this.tut.stop(); this.setMode(null); this.sound.play('lose');
+    this.phase = 'ended'; this.tut.stop(); this.setMode(null); this.sound.play('lose'); this.save.data.cur.fails++; this.save.save();
     const s = this.state;
     const left = MAX_REVIVES - this.revives; const adOk = ADS.mode !== 'off';
     const canSlotAd = s.slotOpen.some((o) => !o) && adOk && left > 0;
     setTimeout(() => { if (this.phase === 'ended') this.ui.fail({ reason, canSlotAd, canUndo: this.snapshots.length > 0 && adOk && left > 0, revivesLeft: left, adOk, canVip: s.vipSlot === null && s.buses.some((b) => b.st === 'board') }); }, 600);
   }
   /** Reklam/jetonla devam edildi: hak sayacını artır ve oyunu sürdür. Seviye başına en fazla MAX_REVIVES. */
-  reviveAfter(free = false) { if (!free) this.revives++; this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
+  reviveAfter(free = false) { this.save.data.cur.rescues++; if (!free) this.revives++; this.phase = 'play'; this.scene.idleFired = false; this.refreshHud(); }
   /** Kayıp ekranı: ödüllü reklamla, hâlâ kazanılabilir en son konuma geri dön (en fazla 3 kez). */
   async reviveUndo() {
     if (this.revives >= MAX_REVIVES) { this.ui.toast('Geri alma hakkın bitti. Seviyeyi yeniden başlatmalısın.', 'bad'); return false; }
@@ -503,7 +498,7 @@ export class Game {
     }
     const r = DAILY_REWARDS[idx];
     d.daily.streak = streak; d.daily.lastClaim = day;
-    this.addCoins(r.coins, false); if (r.power) d.powerups[r.power[0]] += r.power[1];
+    this.addCoins(r.coins + (d.premium.owned.prem_daily ? PREMIUM_DAILY_BONUS : 0), false); if (r.power) d.powerups[r.power[0]] += r.power[1];
     this.recordLogin();
     this.save.save(true); this.sound.play('coin'); this.ui.toast(`+${r.coins} jeton${r.power ? ` ve +${r.power[1]} ${POWER_INFO[r.power[0]].name}` : ''}!`, 'good'); this.ui.renderMenu();
     return true;
@@ -555,7 +550,8 @@ export class Game {
     if (this.mode) this.setMode(null);
     const d = this.save.data;
     const pk = kind === 'vipcall' ? 'vip' : kind;
-    if (['undo', 'hint', 'recall', 'call', 'convert', 'vip', 'shuffle'].includes(pk) && d.powerups[pk] <= 0) { this.ui.powerBuy(pk); return; }
+    if (kind === 'shuffle') { this.ui.shuffleMenu(); return; }
+    if (['undo', 'hint', 'recall', 'call', 'convert', 'vip'].includes(pk) && d.powerups[pk] <= 0) { this.ui.powerBuy(pk); return; }
     if (this.scene.isBusy() && kind !== 'hint') { this.ui.toast('Animasyon bitsin, sonra dene.'); return; }
     switch (kind) {
       case 'undo': if (this.doUndo()) this.usePower('undo'); break;
@@ -564,7 +560,6 @@ export class Game {
       case 'call': this.setMode('call', 'Çağıracağın otobüse dokun'); this.suggestCall(); break;
       case 'convert': this.startConvertMode(); break;
       case 'vipcall': this.startVipMode(); break;
-      case 'shuffle': this.doShuffle(); break;
       default: break;
     }
   }
@@ -691,26 +686,137 @@ export class Game {
     else this.ui.powerBuy('vip', { onGot: go, onCancel: () => this.ui.reshowFail() });
   }
   /** Karıştır: kalan otobüslerin yerlerini yeniden dizer; sonuç her zaman çözülebilirdir. */
-  doShuffle() {
-    const s = this.state; const board = s.buses.filter((b) => b.st === 'board');
-    if (board.length < 2) { this.ui.toast('Karıştırılacak yeterli otobüs yok.'); return false; }
-    const rng = makeRng((this.levelN * 7919 + this.moveCount * 104729 + board.length) >>> 0);
-    let found = null;
-    for (let t = 0; t < 14 && !found; t++) {
-      const lay = shuffleLayout(board.map((b) => ({ id: b.id, len: b.len })), s.w, s.h, rng);
-      if (!lay) continue;
-      const test = E.clone(s);
-      for (const p of lay) { const b = test.buses[p.id]; b.x = b.x0 = p.x; b.y = b.y0 = p.y; b.dir = p.d; }
-      const r = solve(test, { useVip: false, maxNodes: 60000 });
-      if (r.solved) found = lay;
-    }
-    if (!found) { this.ui.toast('Şu an karıştırılamadı, birazdan tekrar dene.', 'bad'); return false; }
-    const snap = E.clone(s);
-    for (const p of found) { const b = s.buses[p.id]; b.x = b.x0 = p.x; b.y = b.y0 = p.y; b.dir = p.d; }
-    s.moves++; this.usePower('shuffle'); this.countMove(); this.snapshots.push(snap);
-    this.scene.loadStage(s, this.save.data.temp.slots); this.scene.shuffleFx(); this.sound.play('whoosh');
-    this.ui.toast('Otobüsler yeniden dizildi!', 'good'); this.refreshChips();
-    return true;
+  /** Karıştır = renk karıştırma. Kaynak: 'stock' (hak), 'coin' (100 altın), 'ad' (doğrulanmış ödüllü reklam → 1 hak). Hak/altın yalnızca işlem başarılı olunca harcanır. */
+  async colorShuffle(source) {
+    if (this.shuffleTx) return false;
+    if (this.phase !== 'play' || !this.state) return false;
+    if (this.scene.isBusy()) { this.ui.toast('Animasyon bitsin, sonra dene.'); return false; }
+    this.shuffleTx = true;
+    try {
+      const d = this.save.data; const s = this.state;
+      if (source === 'stock' && d.powerups.shuffle <= 0) return false;
+      if (source === 'coin' && d.coins < PRICES.shuffle) { this.ui.toast('Yeterli jetonun yok!', 'bad'); return false; }
+      let granted = false;
+      if (source === 'ad') { if (!(await this.requestAd('color-shuffle'))) return false; d.powerups.shuffle++; granted = true; this.save.save(true); if (this.phase !== 'play' || this.state !== s || this.scene.isBusy()) return false; }
+      const rng = makeRng((this.levelN * 7919 + this.moveCount * 104729 + s.qi * 31 + Date.now()) >>> 0);
+      const map = E.colorShuffleMap(s, rng, COLORS.length);
+      if (!map) { this.ui.toast('Karıştırılacak yeterli renk yok.', 'bad'); return false; }
+      if (source === 'coin') { if (!this.spendCoins(PRICES.shuffle)) return false; } else if (d.powerups.shuffle > 0) d.powerups.shuffle--;
+      void granted;
+      E.applyColorMap(s, map); this.assists++;
+      this.scene.loadStage(s, d.temp.slots); this.scene.shuffleFx(); this.sound.play('whoosh');
+      this.scene.fx.ring(0, -5.2, 0xffd34d, 0.5, 6, 0.9);
+      this.ui.toast('Renkler karıştırıldı!', 'good'); this.save.save(true); this.renderPowerBar();
+      return true;
+    } finally { this.shuffleTx = false; }
+  }
+  // ---------------------------------------------------------------- günlük ikmal istasyonu
+  supplyState() {
+    const d = this.save.data; const day = dayKey();
+    if (d.supply.day !== day) d.supply = { day, claimed: {}, nextAt: 0 };
+    const now = Clock.now(); const trusted = Clock.trusted();
+    const idx = SUPPLY.tiers.findIndex((t) => !d.supply.claimed[t.id]);
+    const wait = Math.max(0, d.supply.nextAt - now);
+    return { day, trusted, next: idx, wait, tiers: SUPPLY.tiers.map((t, i) => ({ ...t, done: !!d.supply.claimed[t.id], ready: i === idx && wait === 0 && trusted })) };
+  }
+  async claimSupply(id) {
+    if (this.supplyTx) return false;
+    const st = this.supplyState(); const t = SUPPLY.tiers[st.next];
+    if (!st.trusted) { this.ui.toast(Clock.why(), 'bad'); return false; }
+    if (!t || t.id !== id) return false;                       // sıra dışı / zaten alınmış
+    if (st.wait > 0) { this.ui.toast('Sıradaki ikmal için bekleme süresi bitmedi.'); return false; }
+    this.supplyTx = true;
+    try {
+      if (t.ad && !(await this.requestAd('supply-' + t.id))) return false;
+      const d = this.save.data; if (d.supply.claimed[t.id] || d.supply.day !== dayKey()) return false;
+      d.supply.claimed[t.id] = true; d.supply.nextAt = Clock.now() + SUPPLY.gapMs;
+      this.addCoins(t.coins, false); this.save.save(true); this.sound.play('coin'); this.ui.toast(`+${t.coins} jeton!`, 'good');
+      return true;
+    } finally { this.supplyTx = false; }
+  }
+  // ---------------------------------------------------------------- şanslı çark
+  wheelState() {
+    const d = this.save.data; const day = dayKey();
+    if (d.wheel.day !== day) d.wheel = { day, free: 0, ad: 0, last: '' };
+    return { freeLeft: Math.max(0, WHEEL.freePerDay - d.wheel.free), adLeft: Math.max(0, WHEEL.adSpinsPerDay - d.wheel.ad), last: d.wheel.last };
+  }
+  /** Sonuç ÖNCE belirlenir, ödül verilir ve kaydedilir; animasyon yalnızca bu sonuca döner. Bir çevirme = bir ödül. */
+  async spinWheel(mode) {
+    if (this.wheelTx) return null;
+    if (!Clock.trusted()) { this.ui.toast(Clock.why(), 'bad'); return null; }
+    this.wheelTx = true;
+    try {
+      const w = this.wheelState();
+      if (mode === 'free' && w.freeLeft <= 0) return null;
+      if (mode === 'ad' && w.adLeft <= 0) return null;
+      if (mode === 'ad' && !(await this.requestAd('wheel'))) return null;
+      const d = this.save.data; const w2 = this.wheelState();
+      if (mode === 'free' ? w2.freeLeft <= 0 : w2.adLeft <= 0) return null;
+      const sum = WHEEL.segments.reduce((a, s) => a + s.w, 0);
+      let r = (crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * sum, idx = 0;
+      for (; idx < WHEEL.segments.length - 1; idx++) { r -= WHEEL.segments[idx].w; if (r < 0) break; }
+      const seg = WHEEL.segments[idx];
+      if (mode === 'free') d.wheel.free++; else d.wheel.ad++;
+      d.wheel.last = seg.id;
+      if (seg.coins) this.addCoins(seg.coins, false); if (seg.power) d.powerups[seg.power[0]] = Math.min(999, d.powerups[seg.power[0]] + seg.power[1]);
+      this.save.save(true); this.renderPowerBar?.();
+      return { index: idx, seg };
+    } finally { this.wheelTx = false; }
+  }
+  // ---------------------------------------------------------------- zor seviye teklifi
+  hardScore() {
+    const c = this.save.data.cur; if (c.level !== this.levelN) return 0;
+    const mins = (Clock.now() - c.startedAt) / 60000;
+    const hard = ['hard', 'expert', 'master', 'endless'].includes(this.lvl?.difficulty) ? 1 : 0;
+    return c.fails * 2 + Math.min(10, mins) / 2 + c.rescues * 2 + hard;
+  }
+  offerDue() {
+    const d = this.save.data; const o = d.offers; const day = dayKey(); if (o.day !== day) d.offers = { day, count: 0, lastAt: o.lastAt, done: {} };
+    const oo = d.offers; const now = Clock.now();
+    return this.phase === 'play' && !this.ui.hasModal && d.cur.fails >= 1 && this.levelN > 5 && !oo.done[this.levelN] && oo.count < OFFER.maxPerDay && now - oo.lastAt >= OFFER.cooldownMs && this.hardScore() >= OFFER.minScore;
+  }
+  maybeHardOffer() {
+    if (!this.offerDue()) return false;
+    const o = this.save.data.offers; o.count++; o.lastAt = Clock.now(); o.done[this.levelN] = true; this.save.save(true);
+    this.ui.hardOffer(); return true;
+  }
+  buyOffer() {
+    if (this.offerTx) return false; this.offerTx = true;
+    try {
+      if (!this.spendCoins(OFFER.price)) return false;
+      const d = this.save.data; for (const [k, n] of Object.entries(OFFER.items)) d.powerups[k] = Math.min(999, d.powerups[k] + n);
+      this.save.save(true); this.renderPowerBar(); this.sound.play('unlock'); return true;
+    } finally { this.offerTx = false; }
+  }
+  async offerAd() {
+    if (!(await this.requestAd('offer-power'))) return false;
+    const d = this.save.data; d.powerups.vip++; this.save.save(true); this.renderPowerBar(); this.ui.toast('+1 VIP hakkı', 'good'); return true;
+  }
+  // ---------------------------------------------------------------- premium ürünler (gerçek para; yalnızca mağaza başarı bildirirse)
+  async buyPremium(id) {
+    const p = PREMIUM.find((x) => x.id === id); if (!p) return false;
+    if (this.premTx) return false;
+    if (!p.consumable && this.save.data.premium.owned[id]) { this.ui.toast('Bu ürün zaten sende.'); return false; }
+    this.premTx = true;
+    try {
+      const r = await this.iap.buyProduct(p);
+      if (!r.ok) { this.ui.toast(r.reason === 'unavailable' ? 'Satın alma şu an kullanılamıyor.' : r.reason === 'duplicate' ? 'Bu satın alma zaten işlendi.' : 'Satın alma tamamlanmadı. Ücret alınmadı.', 'bad'); return false; }
+      this.grantPremium(p); this.sound.play('unlock'); this.ui.toast(`${p.name} etkinleştirildi!`, 'good'); return true;
+    } finally { this.premTx = false; }
+  }
+  grantPremium(p) {
+    const d = this.save.data;
+    if (p.id === 'prem_noads') d.ads.removed = true;
+    if (p.id === 'prem_vip') for (const k of ['platinum', 'royal']) if (!d.owned.vipSkin.includes(k)) d.owned.vipSkin.push(k);
+    if (p.id === 'prem_power') for (const k of ['vip', 'shuffle', 'call']) d.powerups[k] = Math.min(999, d.powerups[k] + 3);
+    if (!p.consumable) d.premium.owned[p.id] = true;
+    this.save.save(true); this.renderPowerBar?.();
+  }
+  async restorePremium() {
+    const r = await this.iap.restore();
+    if (!r.ok) { this.ui.toast(r.reason === 'unavailable' ? 'Geri yükleme şu an kullanılamıyor.' : 'Geri yüklenecek satın alma bulunamadı.', 'bad'); return 0; }
+    let n = 0; for (const id of r.ids) { const p = PREMIUM.find((x) => x.productId === id && !x.consumable); if (p && !this.save.data.premium.owned[p.id]) { this.grantPremium(p); n++; } }
+    this.ui.toast(n ? `${n} satın alma geri yüklendi.` : 'Yeni geri yüklenecek bir şey yok.', n ? 'good' : ''); return n;
   }
   buyPack(id) {
     const pk = PACKS.find((x) => x.id === id); if (!pk) return false;
@@ -728,17 +834,6 @@ export class Game {
     d.temp.slots.push(idx); d.stats.slots++; this.emit('slot', 1, false); this.assists++;
     this.scene.unlockSlotFx(idx, true); this.save.save(true); this.ui.toast('Ek park yeri açıldı! (sadece bu seviye)', 'good'); this.renderPowerBar();
     return true;
-  }
-  /** Ek hamle: tam olarak +1. 60 para (bakiye yetersizse reddedilir) ya da doğrulanmış ödüllü reklam. İşlem sürerken ikinci işlem başlatılamaz. */
-  async addMoves(mode) {
-    if (this.moveTx) return false;
-    if (!this.state || this.state.moveLimit === null || this.phase !== 'ended' || this.state.moves < this.state.moveLimit) return false;   // yalnızca kalan hamle 0 iken
-    this.moveTx = true;
-    try {
-      if (mode === 'ad') { if (!(await this.requestAd('extra-moves'))) return false; }
-      else if (!this.spendCoins(EXTRA_MOVE_PRICE)) return false;
-      this.extraMoves += 1; this.state.moveLimit += 1; this.assists++; this.save.save(true); this.refreshChips(); return true;
-    } finally { this.moveTx = false; }
   }
 }
 void COLORS;

@@ -1,9 +1,11 @@
 import { Game } from './game.js';
 import * as __E from './engine.js';
+import * as __CFG from './config.js';
+import { solve as __solve } from './solver.js';
 
 const params = new URLSearchParams(location.search);
 const game = new Game({ preserve: params.has('shot') });
-window.__game = game; window.__E = __E;
+window.__game = game; window.__E = __E; window.__CFG = __CFG; window.__solve = __solve;
 let last = performance.now();
 function loop(t) {
   const dt = Math.min(0.1, (t - last) / 1000); last = t;

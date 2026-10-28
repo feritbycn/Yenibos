@@ -49,7 +49,7 @@ export const SHOP = {
   ],
 };
 export const SHOP_TABS = [
-  ['coins', 'Jeton'], ['packs', 'Paketler'], ['style', 'Otobüs'], ['emblem', 'Armalar'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Premium'],
+  ['coins', 'Jeton'], ['packs', 'Paketler'], ['style', 'Otobüs'], ['emblem', 'Armalar'], ['palette', 'Renkler'], ['rim', 'Jantlar'], ['trail', 'Efekt'], ['vipSkin', 'VIP'], ['power', 'Güç'], ['slot', 'Park'], ['premium', 'Premium'],
 ];
 export const POWER_INFO = {
   undo: { name: 'Geri Al', desc: 'Son hamleyi geri alır.', price: PRICES.undo },
@@ -59,7 +59,7 @@ export const POWER_INFO = {
   call: { name: 'Otobüs Çağır', desc: 'İstediğin bir otobüsü, yolu kapalı olsa bile park alanına çağırır.', price: PRICES.call },
   extraSlot: { name: 'Ek Park Yeri', desc: 'Bu seviye için bir park yeri açar.', price: PRICES.extraSlot },
   vip: { name: 'VIP Hakkı', desc: 'Seçtiğin otobüsü VIP alanına gönderir; kendi rengindeki yolcuları kuyruğun her yerinden alır.', price: PRICES.vip },
-  shuffle: { name: 'Karıştır', desc: 'Tahtadaki otobüslerin yerini karıştırır (seviye çözülebilir kalır).', price: PRICES.shuffle },
+  shuffle: { name: 'Karıştır', desc: 'Otobüs ve yolcu renklerini karıştırır (konum ve çözülebilirlik değişmez).', price: PRICES.shuffle },
 };
 
 export const DAILY_REWARDS = [

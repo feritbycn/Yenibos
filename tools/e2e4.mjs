@@ -56,11 +56,12 @@ check('VIP hakkı 1 azaldı', await ev(() => window.__game.save.data.powerups.vi
 
 // ---------- 3) Karıştır
 await ev(() => window.__game.startLevel(12)); await ff(0.5);
-const sh0 = await ev(() => { const g = window.__game; g.save.data.powerups.shuffle = 1; const f = g.state.buses.map((b) => `${b.id}:${b.x},${b.y},${b.dir}`).join('|'); return f; });
-const sh = await ev(() => { const g = window.__game; g.onPower('shuffle'); const ok = true; return { left: g.save.data.powerups.shuffle, pos: g.state.buses.map((b) => `${b.id}:${b.x},${b.y},${b.dir}`).join('|'), vis: g.scene.busVis.size, boardN: g.state.buses.filter((b) => b.st !== 'gone').length }; });
+const sh0 = await ev(() => { const g = window.__game; g.save.data.powerups.shuffle = 1; return JSON.stringify({ p: g.state.buses.map((b) => `${b.id}:${b.x},${b.y},${b.dir}`), c: g.state.buses.map((b) => b.color) }); });
+const sh = await ev(async () => { const g = window.__game; g.onPower('shuffle'); const menu = !!document.querySelector('.modal-bg [data-act=stock]'); g.ui.closeAll(); const ok = await g.colorShuffle('stock'); return { menu, ok, left: g.save.data.powerups.shuffle, now: JSON.stringify({ p: g.state.buses.map((b) => `${b.id}:${b.x},${b.y},${b.dir}`), c: g.state.buses.map((b) => b.color) }), vis: g.scene.busVis.size, boardN: g.state.buses.filter((b) => b.st !== 'gone').length }; });
 await ff(1);
 const solv = await ev(() => window.__game.doHint());
-check('Karıştır: hak azaldı, yerler değişti, tahta görseli yenilendi', sh.left === 0 && sh.pos !== sh0 && sh.vis === sh.boardN, JSON.stringify({ left: sh.left, changed: sh.pos !== sh0, vis: sh.vis, n: sh.boardN }));
+const o0 = JSON.parse(sh0), o1 = JSON.parse(sh.now);
+check('Karıştır (renk): menü açılır, hak azalır, renkler değişir, yerler/yönler aynı, görsel yenilenir', sh.menu && sh.ok && sh.left === 0 && o0.p.join() === o1.p.join() && o0.c.join() !== o1.c.join() && sh.vis === sh.boardN, JSON.stringify({ menu: sh.menu, left: sh.left, vis: sh.vis, n: sh.boardN }));
 check('Karıştırdıktan sonra seviye hâlâ çözülebilir (ipucu çözüm buldu)', solv === true);
 await shot('shuffled_board');
 

@@ -41,4 +41,28 @@ export class IapService {
       return { ok: true };
     } catch (e) { return { ok: false, reason: 'cancelled', error: String(e?.message || e) }; }
   }
+  /** Premium ürün (tek seferlik/tüketilebilir). İşlem kimliği tekrarsa ya da eklenti başarı döndürmezse hiçbir şey verilmez. */
+  async buyProduct(p) {
+    if (!this.available()) return { ok: false, reason: 'unavailable' };
+    try {
+      const NP = window.Capacitor.Plugins.NativePurchases;
+      const res = await NP.purchaseProduct({ productIdentifier: p.productId, productType: 'inapp', quantity: 1 });
+      const txId = String(res?.transactionId || res?.orderId || '');
+      if (!txId) return { ok: false, reason: 'no-transaction' };
+      const d = this.G.save.data; d.iap ||= { tx: [] };
+      if (d.iap.tx.includes(txId)) return { ok: false, reason: 'duplicate' };
+      d.iap.tx.push(txId); if (d.iap.tx.length > 300) d.iap.tx.shift(); this.G.save.save(true);
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: 'cancelled', error: String(e?.message || e) }; }
+  }
+  /** Geri yükleme: mağazanın bildirdiği ürün kimlikleri. Eklenti yoksa/başarısızsa hiçbir şey verilmez. */
+  async restore() {
+    if (!this.available()) return { ok: false, reason: 'unavailable' };
+    try {
+      const NP = window.Capacitor.Plugins.NativePurchases;
+      const res = await (NP.restorePurchases ? NP.restorePurchases() : NP.getPurchases?.());
+      const list = res?.purchases || res?.transactions || [];
+      return { ok: true, ids: list.map((x) => String(x.productIdentifier || x.productId || '')).filter(Boolean) };
+    } catch (e) { return { ok: false, reason: 'error', error: String(e?.message || e) }; }
+  }
 }

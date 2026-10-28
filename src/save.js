@@ -23,6 +23,11 @@ export const defaults = () => ({
   inboxDone: [],
   ads: { since: 0, nextAt: 4, last: 0, removed: false, offers: 0, offerDay: '', offerLevel: 0 },
   notif: { enabled: false, asked: false },
+  supply: { day: '', claimed: {}, nextAt: 0 },
+  wheel: { day: '', free: 0, ad: 0, last: '' },
+  offers: { day: '', count: 0, lastAt: 0, done: {} },
+  premium: { owned: {} },
+  cur: { level: 0, fails: 0, rescues: 0, startedAt: 0 },
   stats: { passengers: 0, levels: 0, vip: 0, coinsEarned: 0, buses: 0, slots: 0, threeStars: 0, ads: 0 },
 });
 
@@ -57,6 +62,11 @@ export function sanitize(raw) {
   const ac2 = obj(r.account); out.account = { uid: str(ac2.uid, ''), token: str(ac2.token, ''), name: str(ac2.name, '').slice(0, 20), botSeed: num(ac2.botSeed, 0, 0, 4294967295) };
   out.best = {}; for (const k of Object.keys(obj(r.best))) { const n = +k; if (Number.isInteger(n) && n > 0) out.best[n] = num(r.best[k], 0, 0, 99999); }
   const lbv = obj(r.lb); out.lb = { week: str(lbv.week, ''), levels: {} }; for (const k of Object.keys(obj(lbv.levels))) out.lb.levels[k] = num(lbv.levels[k], 0, 0, 99999);
+  const su = obj(r.supply); out.supply = { day: str(su.day, ''), claimed: obj(su.claimed), nextAt: num(su.nextAt, 0, 0, 4e12) };
+  const wh = obj(r.wheel); out.wheel = { day: str(wh.day, ''), free: num(wh.free, 0, 0, 99), ad: num(wh.ad, 0, 0, 99), last: str(wh.last, '') };
+  const of = obj(r.offers); out.offers = { day: str(of.day, ''), count: num(of.count, 0, 0, 99), lastAt: num(of.lastAt, 0, 0, 4e12), done: obj(of.done) };
+  out.premium = { owned: obj(obj(r.premium).owned) };
+  const cu = obj(r.cur); out.cur = { level: num(cu.level, 0), fails: num(cu.fails, 0, 0, 999), rescues: num(cu.rescues, 0, 0, 999), startedAt: num(cu.startedAt, 0, 0, 4e12) };
   out.inboxDone = Array.isArray(r.inboxDone) ? r.inboxDone.filter((x) => typeof x === 'string').slice(-200) : [];
   const ad = obj(r.ads); out.ads = { since: num(ad.since, 0, 0, 999), nextAt: num(ad.nextAt, 4, 3, 9), last: num(ad.last, 0, 0, 4e12), removed: ad.removed === true, offers: num(ad.offers, 0, 0, 99), offerDay: str(ad.offerDay, ''), offerLevel: num(ad.offerLevel, 0, 0, 1e6) };
   const nf = obj(r.notif); out.notif = { enabled: nf.enabled === true, asked: nf.asked === true };
